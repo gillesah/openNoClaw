@@ -1,0 +1,49 @@
+# ── Personal data (never commit) ─────────────────────────────
+config.yml
+data/
+.env
+# Developer-specific instructions (contains server IPs, credentials)
+CLAUDE.md
+
+# ── Custom skills (personal — gitignored, keep email-assistant as example) ─────
+skills/apollo/
+skills/bluesky/
+skills/bd-fluenzr/
+skills/context/
+skills/courses/
+skills/homeassistant/
+skills/linear-fluenzr/
+skills/linear-morning/
+skills/morning-brief/
+skills/qa-fluenzr/
+skills/reddit/
+skills/scout/
+skills/site-monitor/
+skills/social-media/
+skills/twitter/
+skills/write-article/
+
+# ── Scripts (personal) ─────────────────────────────────────────
+scripts/
+
+# ── Python ────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# ── Credentials & sessions ────────────────────────────────────
+skills/*/cookies.json
+skills/*/session.json
+skills/*/.venv/
+*.log
+
+# ── Node (if any) ─────────────────────────────────────────────
+node_modules/
+
+# ── IDE ───────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+.DS_Store

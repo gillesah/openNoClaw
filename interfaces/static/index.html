@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>openNoClaw</title>
+  <meta name="theme-color" content="#7b6ef6" />
+  <link rel="manifest" href="/static/manifest.json" />
+  <link rel="apple-touch-icon" href="/static/icon-192.png" />
+  <link rel="stylesheet" href="/static/style.css?v=9" />
+</head>
+<body>
+
+  <!-- Login screen -->
+  <div id="login-screen" class="login-screen">
+    <div class="login-box">
+      <div class="login-logo">openNoClaw</div>
+      <p class="login-sub">Who are you?</p>
+      <div id="profile-picker" class="profile-picker"></div>
+      <div id="login-password-area" class="login-password-area hidden">
+        <input type="password" id="login-pw-input" placeholder="Password" autocomplete="current-password" />
+        <button id="login-pw-btn">Sign in</button>
+        <p id="login-error" class="login-error hidden">Wrong password</p>
+        <button id="login-back-btn" class="link-btn">← Back</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main app -->
+  <div id="app" class="app hidden">
+
+    <!-- Left nav -->
+    <nav class="nav">
+      <div class="nav-logo" id="nav-logo">
+        <img id="bot-avatar-nav" src="/static/avatars/bot-nexus.svg" alt="bot" />
+        <span id="bot-name-nav">onC</span>
+      </div>
+
+      <div class="nav-items">
+        <button class="nav-item active" data-section="chat" title="Chat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span>Chat</span>
+        </button>
+        <button class="nav-item" data-section="agents" title="Agents">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M9 11V7a3 3 0 0 1 6 0v4"/><circle cx="12" cy="16" r="1"/></svg>
+          <span>Agents</span>
+        </button>
+        <button class="nav-item" data-section="skills" title="Skills">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          <span>Skills</span>
+        </button>
+        <button class="nav-item admin-only" data-section="connexions" title="Connexions">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <span>Links</span>
+        </button>
+        <button class="nav-item" data-section="settings" title="Config">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+          <span>Settings</span>
+        </button>
+        <button class="nav-item" data-section="automation" title="Automation">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M8.46 8.46a5 5 0 0 0 0 7.07"/></svg>
+          <span>Auto</span>
+        </button>
+        <button class="nav-item" data-section="browser" title="Browser">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M2 7h20"/><circle cx="5" cy="5" r=".5" fill="currentColor"/><circle cx="8" cy="5" r=".5" fill="currentColor"/><path d="M8 21l4-4 4 4"/></svg>
+          <span>Browser</span>
+        </button>
+      </div>
+
+      <div class="nav-footer">
+        <div id="backend-badge" class="backend-badge" title="AI backend"></div>
+        <div id="cost-display" class="cost-display hidden" title="Session cost"></div>
+        <button id="profile-btn" class="profile-btn" title="Switch profile">
+          <div id="profile-avatar" class="avatar">?</div>
+          <span id="profile-name-nav">—</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Content area -->
+    <main class="content">
+
+      <!-- ── CHAT ── -->
+      <section id="section-chat" class="section active">
+        <div class="chat-panel">
+          <div class="chat-header">
+            <div class="chat-header-left">
+              <span id="chat-profile-label" class="chat-profile-label">Chat</span>
+              <span id="browser-badge" class="browser-badge" style="display:none" title="Browser session active — Claude can see this page">🌐 <span id="browser-badge-url"></span></span>
+            </div>
+            <div class="chat-header-right">
+              <button id="clear-btn" class="icon-btn" title="Clear conversation">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              </button>
+            </div>
+          </div>
+          <div id="sessions-bar" class="sessions-bar">
+            <button id="new-chat-btn" class="new-chat-btn">+ New</button>
+            <div id="sessions-list" class="sessions-list"></div>
+          </div>
+          <div id="messages" class="messages"></div>
+          <div class="input-area">
+            <div id="attach-preview" class="attach-preview"></div>
+            <div class="input-row">
+              <button id="screenshot-btn" class="screenshot-btn" title="Send current browser screenshot">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M2 7h20"/><path d="M8 21l4-4 4 4"/></svg>
+              </button>
+              <button id="attach-btn" class="attach-btn" title="Attach file">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              </button>
+              <input type="file" id="attach-input" multiple
+                accept=".txt,.md,.py,.js,.ts,.jsx,.tsx,.json,.csv,.yml,.yaml,.sh,.sql,.html,.css,.xml,.env,.log,.php,.rb,.go,.rs,.swift,.kt,.java,.c,.cpp,.h,.cs,.jpg,.jpeg,.png,.gif,.webp"
+                style="display:none" />
+              <textarea id="input" placeholder="Type a message… (Enter to send, Shift+Enter for newline)" rows="1"></textarea>
+              <button id="send-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── AGENTS ── -->
+      <section id="section-agents" class="section">
+        <div class="page-header">
+          <div>
+            <h2>Agents</h2>
+            <span class="shared-badge" title="Agents are shared across all users">shared</span>
+          </div>
+          <button id="create-agent-btn" class="btn-primary admin-only">+ New agent</button>
+        </div>
+        <div class="page-body">
+          <div id="agents-grid" class="agents-grid"></div>
+        </div>
+      </section>
+
+      <!-- ── SKILLS ── -->
+      <section id="section-skills" class="section">
+        <div class="page-header">
+          <div>
+            <h2>Skills</h2>
+            <span class="shared-badge" title="Skills are shared across all users">shared</span>
+          </div>
+          <button id="reload-skills-btn" class="btn-secondary" data-admin>Reload</button>
+        </div>
+        <div class="page-body">
+          <div id="skills-grid" class="skills-grid"></div>
+        </div>
+      </section>
+
+      <!-- ── SETTINGS (admin only) ── -->
+      <section id="section-settings" class="section">
+        <!-- Tab bar -->
+        <div id="settings-tabs" class="settings-tabs hidden">
+          <button class="stab-btn active" data-stab="general">Général</button>
+          <button class="stab-btn" data-stab="gilles">Gilles</button>
+          <button class="stab-btn" data-stab="pam">Pam</button>
+        </div>
+
+        <!-- ─── Tab: Général (admin) ─────────────────────────────── -->
+        <div id="stab-general" class="stab-panel">
+          <div class="page-body">
+
+            <!-- Bot Identity -->
+            <div class="settings-card">
+              <div class="settings-card-title">Bot identity</div>
+              <div class="settings-card-sub">Name and avatar of your AI assistant — shown in the nav and chat.</div>
+              <div class="conn-field-group" style="margin-top:.8rem">
+                <div class="form-row">
+                  <label>Bot name</label>
+                  <input type="text" id="bot-name-input" class="settings-input" placeholder="openNoClaw" maxlength="24" />
+                </div>
+                <label style="font-size:.82rem;font-weight:600;color:var(--text-dim);margin-top:.2rem">Avatar</label>
+                <div id="bot-avatar-picker" class="bot-avatar-picker">
+                  <!-- populated by JS -->
+                </div>
+              </div>
+              <div style="display:flex;gap:.6rem;margin-top:.9rem;align-items:center">
+                <button id="bot-save-btn" class="btn-primary">Save</button>
+                <span id="bot-save-msg" class="connexion-msg hidden"></span>
+              </div>
+            </div>
+
+            <!-- Claude Code CLI Auth -->
+            <div class="settings-card">
+              <div class="settings-card-title">Claude Code CLI (agents)</div>
+              <div class="settings-card-sub" id="auth-status-text">Checking…</div>
+              <div id="auth-flow" class="auth-flow">
+                <div id="auth-idle">
+                  <button id="auth-start-btn" class="btn-primary" style="margin-top:.6rem">Start authentication</button>
+                </div>
+                <div id="auth-step-url" class="auth-step hidden">
+                  <p>1. Open this URL in your browser and log in with your Claude account:</p>
+                  <a id="auth-url-link" href="#" target="_blank" class="auth-url-box" id="auth-url-text">…</a>
+                  <p>2. After logging in, your browser will try to redirect to <code>localhost</code> and fail.
+                     Copy the full URL from your browser address bar and paste it below:</p>
+                  <div style="display:flex;gap:.5rem">
+                    <input type="text" id="auth-callback-input" class="settings-input" placeholder="http://localhost:PORT/callback?code=…" style="flex:1" />
+                    <button id="auth-complete-btn" class="btn-primary">Complete</button>
+                  </div>
+                  <button id="auth-cancel-btn" class="link-btn" style="margin-top:.4rem">Cancel</button>
+                </div>
+                <div id="auth-step-success" class="hidden" style="color:var(--ok);margin-top:.6rem;font-size:.88rem">
+                  ✓ Claude Code authenticated successfully
+                </div>
+                <div id="auth-step-error" class="hidden" style="color:var(--err);margin-top:.6rem;font-size:.88rem"></div>
+              </div>
+            </div>
+
+            <!-- API Key -->
+            <div class="settings-card" id="apikey-card">
+              <div class="settings-card-title">Anthropic API Key</div>
+              <div class="settings-card-sub" id="apikey-status-text">Checking…</div>
+              <div id="apikey-form" style="margin-top:.8rem">
+                <div style="display:flex;gap:.5rem;align-items:center">
+                  <input type="password" id="apikey-input" placeholder="sk-ant-…" class="settings-input" style="flex:1" />
+                  <button id="apikey-save-btn" class="btn-primary">Save</button>
+                </div>
+                <p id="apikey-result-msg" class="hidden" style="margin-top:.6rem;font-size:.85rem"></p>
+              </div>
+            </div>
+
+            <!-- Backend info -->
+            <div class="settings-card">
+              <div class="settings-card-title">Backend</div>
+              <div id="settings-backend-info" class="settings-card-sub">Loading…</div>
+            </div>
+
+            <!-- Gmail -->
+            <div class="settings-card">
+              <div class="settings-card-title">Gmail</div>
+              <div class="settings-card-sub">Connect your Gmail account to read, archive and send emails. Requires a Google Cloud OAuth2 app.</div>
+              <details style="margin:.6rem 0 1rem">
+                <summary style="cursor:pointer;font-size:.82rem;color:var(--text-dim);font-weight:600">How to set up Google OAuth2 credentials</summary>
+                <ol style="font-size:.82rem;color:var(--text-dim);margin:.6rem 0 0 1rem;line-height:1.7">
+                  <li>Go to <strong>console.cloud.google.com</strong> → create a new project</li>
+                  <li>Enable the <strong>Gmail API</strong> (APIs &amp; Services → Library)</li>
+                  <li>Go to <strong>APIs &amp; Services → Credentials → Create OAuth client ID</strong></li>
+                  <li>Application type: <strong>Web application</strong></li>
+                  <li>Authorized redirect URIs: add <code id="gmail-redirect-uri-hint"></code></li>
+                  <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> below</li>
+                  <li>In OAuth consent screen, add your Gmail address as a test user</li>
+                </ol>
+              </details>
+              <div class="conn-field-group">
+                <div class="form-row">
+                  <label>Client ID</label>
+                  <input type="text" id="gmail-client-id" class="settings-input" placeholder="123456789-abc.apps.googleusercontent.com" autocomplete="off" />
+                </div>
+                <div class="form-row">
+                  <label>Client Secret</label>
+                  <input type="password" id="gmail-client-secret" class="settings-input" placeholder="GOCSPX-..." autocomplete="off" />
+                </div>
+              </div>
+              <div style="display:flex;gap:.6rem;margin-top:.9rem;align-items:center;flex-wrap:wrap">
+                <button id="gmail-save-btn" class="btn-primary">Save credentials</button>
+                <button id="gmail-connect-btn" class="btn-secondary">Connect Gmail</button>
+                <button id="gmail-disconnect-btn" class="btn-secondary" style="display:none">Disconnect</button>
+                <span id="gmail-status-badge" class="conn-status-badge"></span>
+                <span id="gmail-msg" class="connexion-msg hidden"></span>
+              </div>
+            </div>
+
+            <!-- Google Tasks -->
+            <div class="settings-card">
+              <div class="settings-card-title">Google Tasks</div>
+              <div class="settings-card-sub">Connect Google Tasks to enable the courses sync (Keep ↔ Tasks). Uses the same OAuth credentials as Gmail — no extra setup needed.</div>
+              <p style="font-size:.82rem;color:var(--text-dim);margin:.4rem 0 .8rem">Make sure <code>https://app.opennoclaw.com/api/google-tasks/callback</code> is added as an authorized redirect URI in your Google Cloud OAuth client, and that the <strong>Tasks API</strong> is enabled.</p>
+              <div style="display:flex;gap:.6rem;margin-top:.5rem;align-items:center;flex-wrap:wrap">
+                <button id="gtasks-connect-btn" class="btn-secondary">Connect Google Tasks</button>
+                <button id="gtasks-disconnect-btn" class="btn-secondary" style="display:none">Disconnect</button>
+                <span id="gtasks-status-badge" class="conn-status-badge"></span>
+                <span id="gtasks-msg" class="connexion-msg hidden"></span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ─── Tab: User connexions (Gilles / Pam / Mon profil) ── -->
+        <div id="stab-connexions" class="stab-panel">
+          <div class="page-body">
+
+          <!-- Telegram -->
+          <div class="settings-card">
+            <div class="settings-card-title">Telegram</div>
+            <div class="settings-card-sub">Receive cron notifications and interact via your Telegram bot.</div>
+            <div class="conn-field-group">
+              <label class="toggle-label" style="margin-bottom:.4rem">
+                <span style="font-size:.85rem;font-weight:600">Enable</span>
+                <input type="checkbox" id="tg-enabled" />
+              </label>
+              <div class="form-row">
+                <label>Bot Token</label>
+                <input type="password" id="tg-token" class="settings-input" placeholder="123456:ABC-DEF..." autocomplete="off" />
+              </div>
+              <div class="form-row">
+                <label>Chat ID <span class="hint">— your personal chat ID (use @userinfobot to find it)</span></label>
+                <input type="text" id="tg-chat-id" class="settings-input" placeholder="123456789" />
+              </div>
+            </div>
+            <div style="display:flex;gap:.6rem;margin-top:.9rem;align-items:center">
+              <button id="tg-save-btn" class="btn-primary">Save</button>
+              <button id="tg-test-btn" class="btn-secondary">Test</button>
+              <span id="tg-msg" class="connexion-msg hidden"></span>
+            </div>
+          </div>
+
+          <!-- Email / SMTP -->
+          <div class="settings-card">
+            <div class="settings-card-title">Email (SMTP)</div>
+            <div class="settings-card-sub">Send notifications and emails via your SMTP account (Gmail, Outlook…).</div>
+            <div class="conn-field-group">
+              <label class="toggle-label" style="margin-bottom:.4rem">
+                <span style="font-size:.85rem;font-weight:600">Enable</span>
+                <input type="checkbox" id="email-enabled" />
+              </label>
+              <div style="display:grid;grid-template-columns:1fr 120px;gap:.6rem">
+                <div class="form-row">
+                  <label>SMTP Host</label>
+                  <input type="text" id="email-host" class="settings-input" placeholder="smtp.gmail.com" />
+                </div>
+                <div class="form-row">
+                  <label>Port</label>
+                  <input type="number" id="email-port" class="settings-input" value="587" />
+                </div>
+              </div>
+              <div class="form-row">
+                <label>SMTP User</label>
+                <input type="email" id="email-user" class="settings-input" placeholder="you@gmail.com" />
+              </div>
+              <div class="form-row">
+                <label>Password / App password</label>
+                <input type="password" id="email-password" class="settings-input" placeholder="••••••••" autocomplete="off" />
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
+                <div class="form-row">
+                  <label>From name</label>
+                  <input type="text" id="email-from-name" class="settings-input" placeholder="openNoClaw" />
+                </div>
+                <div class="form-row">
+                  <label>From email</label>
+                  <input type="email" id="email-from-email" class="settings-input" placeholder="you@gmail.com" />
+                </div>
+              </div>
+              <div class="form-row">
+                <label>Notification email <span style="font-size:.75rem;font-weight:400;color:var(--text-muted)">(recipient — where notifications are sent)</span></label>
+                <input type="email" id="email-notify-email" class="settings-input" placeholder="recipient@example.com" />
+              </div>
+            </div>
+            <div style="display:flex;gap:.6rem;margin-top:.9rem;align-items:center">
+              <button id="email-save-btn" class="btn-primary">Save</button>
+              <button id="email-test-btn" class="btn-secondary">Test</button>
+              <span id="email-msg" class="connexion-msg hidden"></span>
+            </div>
+          </div>
+
+          <!-- GitHub -->
+          <div class="settings-card conn-gilles-only">
+            <div class="settings-card-title">GitHub</div>
+            <div class="settings-card-sub">Personal Access Token (PAT) pour merger des branches et déclencher des déploiements via GitHub Actions.</div>
+            <div class="conn-field-group">
+              <label class="toggle-label" style="margin-bottom:.4rem">
+                <span style="font-size:.85rem;font-weight:600">Enable</span>
+                <input type="checkbox" id="gh-enabled" />
+              </label>
+              <div class="form-row">
+                <label>Personal Access Token <span class="hint">— scope: <code>repo</code> (ou <code>contents:write</code>)</span></label>
+                <input type="password" id="gh-token" class="settings-input" placeholder="ghp_..." autocomplete="off" />
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
+                <div class="form-row">
+                  <label>Repo owner</label>
+                  <input type="text" id="gh-repo-owner" class="settings-input" placeholder="gillesah" />
+                </div>
+                <div class="form-row">
+                  <label>Default repo</label>
+                  <input type="text" id="gh-repo-name" class="settings-input" placeholder="fluenzr" />
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:.6rem;margin-top:.9rem;align-items:center">
+              <button id="gh-save-btn" class="btn-primary">Save</button>
+              <span id="gh-msg" class="connexion-msg hidden"></span>
+            </div>
+          </div>
+
+          <!-- Linear -->
+          <div class="settings-card conn-gilles-only">
+            <div class="settings-card-title">Linear</div>
+            <div class="settings-card-sub">Clé API Linear pour lire le board et déplacer les tickets automatiquement.</div>
+            <div class="conn-field-group">
+              <label class="toggle-label" style="margin-bottom:.4rem">
+                <span style="font-size:.85rem;font-weight:600">Enable</span>
+                <input type="checkbox" id="linear-enabled" />
+              </label>
+              <div class="form-row">
+                <label>API Key <span class="hint">— Settings → API → Personal API keys</span></label>
+                <input type="password" id="linear-api-key" class="settings-input" placeholder="lin_api_..." autocomplete="off" />
+              </div>
+            </div>
+            <div style="display:flex;gap:.6rem;margin-top:.9rem;align-items:center">
+              <button id="linear-save-btn" class="btn-primary">Save</button>
+              <span id="linear-msg" class="connexion-msg hidden"></span>
+            </div>
+          </div>
+
+          <!-- Réseaux sociaux -->
+          <div class="settings-card">
+            <div class="settings-card-title">Réseaux sociaux</div>
+            <div class="settings-card-sub">Identifiants pour que Gulliver puisse poster et interagir sur vos comptes.</div>
+
+            <div style="margin-top:.8rem">
+              <div style="font-size:.8rem;font-weight:700;letter-spacing:.05em;color:var(--text-dim);text-transform:uppercase;margin-bottom:.6rem">Reddit</div>
+              <div class="settings-card-sub" style="margin-bottom:.6rem">Auth via cookies Chrome. Lance <code>export_reddit_cookies.py</code> depuis ta machine quand la session expire.</div>
+              <div class="conn-field-group">
+                <label class="toggle-label" style="margin-bottom:.4rem">
+                  <span style="font-size:.85rem;font-weight:600">Activer</span>
+                  <input type="checkbox" id="reddit-enabled" />
+                </label>
+                <div class="form-row">
+                  <label>Username <span class="hint">— sans u/</span></label>
+                  <input type="text" id="reddit-username" class="settings-input" placeholder="GillesCode" autocomplete="off" />
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
+              <div style="font-size:.8rem;font-weight:700;letter-spacing:.05em;color:var(--text-dim);text-transform:uppercase;margin-bottom:.6rem">Bluesky</div>
+              <div class="conn-field-group">
+                <label class="toggle-label" style="margin-bottom:.4rem">
+                  <span style="font-size:.85rem;font-weight:600">Activer</span>
+                  <input type="checkbox" id="bsky-enabled" />
+                </label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
+                  <div class="form-row">
+                    <label>Handle <span class="hint">— ex: vous.bsky.social</span></label>
+                    <input type="text" id="bsky-handle" class="settings-input" placeholder="vous.bsky.social" autocomplete="off" />
+                  </div>
+                  <div class="form-row">
+                    <label>App Password <span class="hint">— Settings → App Passwords</span></label>
+                    <input type="password" id="bsky-app-password" class="settings-input" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="off" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
+              <div style="font-size:.8rem;font-weight:700;letter-spacing:.05em;color:var(--text-dim);text-transform:uppercase;margin-bottom:.6rem">Twitter / X</div>
+              <div class="settings-card-sub" style="margin-bottom:.6rem">Clés API Twitter v2 — <a href="https://developer.twitter.com/en/portal/dashboard" target="_blank" style="color:var(--accent)">developer.twitter.com</a> · App permissions : <strong>Read and Write</strong></div>
+              <div class="conn-field-group">
+                <label class="toggle-label" style="margin-bottom:.4rem">
+                  <span style="font-size:.85rem;font-weight:600">Activer</span>
+                  <input type="checkbox" id="twitter-enabled" />
+                </label>
+                <div style="font-size:.78rem;color:var(--text-dimmer);margin-bottom:.5rem">App credentials (section "Keys and tokens" → "Consumer Keys")</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
+                  <div class="form-row">
+                    <label>Consumer Key (API Key)</label>
+                    <input type="password" id="twitter-consumer-key" class="settings-input" placeholder="••••••••" autocomplete="off" />
+                  </div>
+                  <div class="form-row">
+                    <label>Consumer Secret</label>
+                    <input type="password" id="twitter-consumer-secret" class="settings-input" placeholder="••••••••" autocomplete="off" />
+                  </div>
+                </div>
+                <div style="font-size:.78rem;color:var(--text-dimmer);margin:.7rem 0 .5rem">User Access Tokens (section "Authentication Tokens" → "Access Token and Secret") — requis pour poster</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
+                  <div class="form-row">
+                    <label>Access Token</label>
+                    <input type="password" id="twitter-access-token" class="settings-input" placeholder="••••••••" autocomplete="off" />
+                  </div>
+                  <div class="form-row">
+                    <label>Access Token Secret</label>
+                    <input type="password" id="twitter-access-token-secret" class="settings-input" placeholder="••••••••" autocomplete="off" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <label>Bearer Token <span class="hint">— lecture seule (optionnel)</span></label>
+                  <input type="password" id="twitter-bearer-token" class="settings-input" placeholder="AAAAAAAAAA..." autocomplete="off" />
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:.6rem;margin-top:.9rem;align-items:center">
+              <button id="social-save-btn" class="btn-primary">Save</button>
+              <span id="social-msg" class="connexion-msg hidden"></span>
+            </div>
+          </div>
+
+          <!-- Leclerc Drive -->
+          <div class="settings-card">
+            <div class="settings-card-title">Leclerc Drive</div>
+            <div class="settings-card-sub">Identifiants du compte Leclerc Drive pour remplir le panier automatiquement. Les cookies de session sont gérés séparément via <code>export_leclerc_cookies.py</code>.</div>
+            <div class="conn-field-group">
+              <label class="toggle-label" style="margin-bottom:.4rem">
+                <span style="font-size:.85rem;font-weight:600">Activer</span>
+                <input type="checkbox" id="leclerc-enabled" />
+              </label>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
+                <div class="form-row">
+                  <label>Email du compte</label>
+                  <input type="email" id="leclerc-email" class="settings-input" placeholder="pam@example.com" autocomplete="off" />
+                </div>
+                <div class="form-row">
+                  <label>Mot de passe</label>
+                  <input type="password" id="leclerc-password" class="settings-input" placeholder="••••••••" autocomplete="off" />
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:.6rem;margin-top:.9rem;align-items:center">
+              <button id="leclerc-save-btn" class="btn-primary">Save</button>
+              <span id="leclerc-msg" class="connexion-msg hidden"></span>
+            </div>
+          </div>
+
+          <!-- Notion -->
+          <div class="settings-card">
+            <div class="settings-card-title">Notion</div>
+            <div class="settings-card-sub">Connectez votre workspace Notion pour lire et écrire dans vos bases de données (ex: tableau influenceurs).</div>
+            <div class="conn-field-group">
+              <label class="toggle-label" style="margin-bottom:.4rem">
+                <span style="font-size:.85rem;font-weight:600">Activer</span>
+                <input type="checkbox" id="notion-enabled" />
+              </label>
+              <div class="form-row">
+                <label>Integration Token <span class="hint">— notion.so/my-integrations → token commençant par ntn_</span></label>
+                <input type="password" id="notion-api-key" class="settings-input" placeholder="ntn_..." autocomplete="off" />
+              </div>
+              <div class="form-row">
+                <label>Database ID <span class="hint">— ID du tableau influenceurs (URL Notion → 32 caractères)</span></label>
+                <input type="text" id="notion-database-id" class="settings-input" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autocomplete="off" />
+              </div>
+            </div>
+            <div style="display:flex;gap:.6rem;margin-top:.9rem;align-items:center">
+              <button id="notion-save-btn" class="btn-primary">Save</button>
+              <span id="notion-msg" class="connexion-msg hidden"></span>
+            </div>
+          </div>
+
+          <!-- MCPs -->
+          <div class="settings-card conn-gilles-only" style="max-width:none">
+            <div class="settings-card-title">MCP Connections</div>
+            <div class="settings-card-sub">Model Context Protocol servers — extend Claude's capabilities with external tools.</div>
+            <div id="mcps-list" style="margin:.8rem 0"></div>
+            <details id="mcp-catalog-details">
+              <summary style="cursor:pointer;font-size:.85rem;font-weight:600;color:var(--text-dim);padding:.4rem 0">+ Browse catalog</summary>
+              <div id="mcp-catalog" class="mcp-catalog-grid" style="margin-top:.8rem"></div>
+            </details>
+          </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- ── CONNEXIONS (empty, kept for JS compat) ── -->
+      <section id="section-connexions" class="section"></section>
+
+      <!-- ── AUTOMATION ── -->
+      <section id="section-automation" class="section">
+        <div class="auto-layout">
+          <div class="auto-sidebar" id="crons-sidebar"></div>
+          <div class="auto-main" id="cron-pipeline">
+            <div class="pipeline-empty">← Select a cron to see its pipeline</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── BROWSER ── -->
+      <section id="section-browser" class="section">
+        <div class="page-header"><h2>Browser</h2></div>
+        <div class="page-body" style="padding:0;display:flex;flex-direction:column;height:100%">
+
+          <!-- Toolbar -->
+          <div class="browser-toolbar">
+            <button id="browser-back-btn" class="browser-tool-btn" title="Back">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+            </button>
+            <button id="browser-refresh-btn" class="browser-tool-btn" title="Refresh">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            </button>
+            <input id="browser-url-input" class="browser-url-bar" type="text" placeholder="https://..." />
+            <button id="browser-go-btn" class="btn-primary" style="padding:.35rem .8rem;font-size:.82rem">Go</button>
+            <button id="browser-cookies-btn" class="browser-tool-btn" title="Export cookies" style="margin-left:.5rem">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg>
+              Cookies
+            </button>
+            <button id="browser-close-btn" class="browser-tool-btn browser-close" title="Close session" style="margin-left:auto">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              Close
+            </button>
+          </div>
+
+          <!-- Type bar -->
+          <div class="browser-type-bar">
+            <input id="browser-type-input" class="browser-url-bar" type="text" placeholder="Type text + Enter to send…" style="flex:1" />
+            <button id="browser-type-btn" class="browser-tool-btn">Send</button>
+            <button id="browser-enter-btn" class="browser-tool-btn">↵ Enter</button>
+            <button id="browser-tab-btn" class="browser-tool-btn">⇥ Tab</button>
+            <button id="browser-scroll-up-btn" class="browser-tool-btn">↑ Scroll</button>
+            <button id="browser-scroll-down-btn" class="browser-tool-btn">↓ Scroll</button>
+          </div>
+
+          <!-- Viewport -->
+          <div id="browser-viewport" class="browser-viewport">
+            <div id="browser-placeholder" class="browser-placeholder">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" style="opacity:.3"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M2 7h20M8 21l4-4 4 4"/></svg>
+              <p>Enter a URL and click Go</p>
+            </div>
+            <img id="browser-img" class="browser-img hidden" alt="browser" />
+            <div id="browser-loading" class="browser-loading hidden">
+              <div class="browser-spinner"></div>
+            </div>
+          </div>
+
+          <!-- Status / cookies output -->
+          <div id="browser-status" class="browser-status"></div>
+          <pre id="browser-cookies-out" class="browser-cookies-out hidden"></pre>
+
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Profile panel (slide-over) -->
+    <div id="profile-panel" class="profile-panel hidden">
+      <div class="profile-panel-inner">
+        <div class="profile-panel-header">
+          <div class="panel-tabs">
+            <button class="panel-tab active" data-tab="profile">Profile</button>
+            <button class="panel-tab" data-tab="context">Context</button>
+          </div>
+          <button id="profile-panel-close" class="icon-btn">✕</button>
+        </div>
+        <div id="profile-panel-body" class="profile-panel-body panel-tab-content" data-tab-body="profile"></div>
+        <div id="profile-context-body" class="profile-panel-body panel-tab-content hidden" data-tab-body="context">
+          <!-- Memory -->
+          <div class="profile-section">
+            <div class="profile-section-title">
+              Mémoire
+              <span class="private-badge" title="Visible uniquement par vous">private</span>
+            </div>
+            <p style="font-size:.78rem;color:var(--text-dim);margin-bottom:.5rem">Ce que Gulliver a appris sur toi. Injecté dans chaque conversation. Tu peux modifier ou supprimer des entrées directement.</p>
+            <textarea id="panel-memory" class="context-textarea" rows="6" placeholder="Rien encore — dis à Gulliver « retiens que… » pour ajouter un fait."></textarea>
+            <div style="display:flex;gap:.5rem;align-items:center;margin-top:.5rem">
+              <button id="panel-save-memory-btn" class="btn-primary" style="align-self:flex-start">Save</button>
+              <span id="panel-memory-saved" class="hidden" style="font-size:.78rem;color:var(--ok)"></span>
+            </div>
+          </div>
+
+          <!-- Global context -->
+          <div class="profile-section">
+            <div class="profile-section-title">
+              Mon contexte global
+              <span class="private-badge" title="Visible uniquement par vous">private</span>
+            </div>
+            <p style="font-size:.78rem;color:var(--text-dim);margin-bottom:.5rem">Injecté dans chaque conversation. Décrivez qui vous êtes, vos préférences…</p>
+            <textarea id="panel-global-ctx" class="context-textarea" rows="7" placeholder="Je m'appelle Gilles, développeur full-stack…"></textarea>
+            <button id="panel-save-global-btn" class="btn-primary" style="margin-top:.5rem;align-self:flex-start">Save</button>
+            <span id="panel-global-saved" class="hidden" style="font-size:.78rem;color:var(--ok);margin-left:.5rem"></span>
+          </div>
+          <!-- Project contexts -->
+          <div class="profile-section">
+            <div class="profile-section-title" style="display:flex;align-items:center;justify-content:space-between">
+              <span>Projets</span>
+              <button id="panel-add-project-btn" class="btn-secondary" style="font-size:.75rem;padding:.25rem .6rem">+ Add</button>
+            </div>
+            <div id="panel-projects-list"></div>
+          </div>
+          <button class="signout-btn" id="signout-btn-ctx">Sign out</button>
+        </div>
+      </div>
+    </div>
+    <div id="profile-overlay" class="profile-overlay hidden"></div>
+
+    <!-- ── Cron detail panel ── -->
+    <div id="cron-panel-overlay" class="profile-overlay hidden"></div>
+    <div id="cron-panel" class="profile-panel hidden" style="width:380px">
+      <div class="profile-panel-inner">
+        <div class="profile-panel-header">
+          <div>
+            <h3 id="cron-panel-title">Cron</h3>
+            <div id="cron-panel-schedule" style="font-size:.75rem;color:var(--text-dimmer);margin-top:.15rem;font-family:monospace"></div>
+          </div>
+          <button id="cron-panel-close" class="icon-btn">✕</button>
+        </div>
+        <div class="profile-panel-body" style="display:flex;flex-direction:column;gap:1.4rem">
+
+          <!-- Status -->
+          <div>
+            <div class="profile-section-title">Status</div>
+            <div style="display:flex;gap:.8rem;align-items:center">
+              <span id="cron-panel-status" class="cron-status">—</span>
+              <div id="cron-panel-times" style="font-size:.8rem;color:var(--text-dim)"></div>
+            </div>
+          </div>
+
+          <!-- Type / Command -->
+          <div>
+            <div class="profile-section-title">Type</div>
+            <div id="cron-panel-type" class="cron-panel-type-block"></div>
+          </div>
+
+          <!-- Notifications -->
+          <div>
+            <div class="profile-section-title">Notifications</div>
+            <div style="display:flex;flex-direction:column;gap:.7rem">
+              <div style="display:flex;gap:.5rem">
+                <button class="notif-toggle" id="cp-notif-telegram" data-channel="telegram">✈ Telegram</button>
+                <button class="notif-toggle" id="cp-notif-email" data-channel="email">✉ Email</button>
+              </div>
+              <div style="display:flex;align-items:center;gap:.6rem">
+                <span style="font-size:.82rem;color:var(--text-dim)">Notifier :</span>
+                <div id="cp-user-btns" style="display:flex;gap:.4rem"></div>
+              </div>
+              <div style="display:flex;gap:.5rem;align-items:center">
+                <button id="cp-notif-save" class="btn-primary" style="padding:.3rem .8rem;font-size:.82rem">Save</button>
+                <span id="cp-notif-msg" style="font-size:.78rem;color:var(--ok)"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div>
+            <div class="profile-section-title">Actions</div>
+            <button id="cp-run-btn" class="btn-primary" style="display:flex;align-items:center;gap:.4rem;padding:.35rem .8rem;font-size:.82rem">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><polygon points="5,3 19,12 5,21"/></svg>
+              Run now
+            </button>
+          </div>
+
+          <!-- Error -->
+          <div id="cp-error-section" class="hidden">
+            <div class="profile-section-title" style="color:#ef5350">Erreur</div>
+            <pre id="cp-error" style="background:#fff5f5;border:1px solid #ffcdd2;border-radius:4px;padding:.7rem;font-size:.72rem;color:#c62828;white-space:pre-wrap;max-height:160px;overflow:auto"></pre>
+          </div>
+
+          <!-- Output -->
+          <div id="cp-output-section" class="hidden">
+            <div class="profile-section-title">Dernier output</div>
+            <pre id="cp-output" style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:.7rem;font-size:.72rem;color:var(--text-dim);white-space:pre-wrap;max-height:220px;overflow:auto"></pre>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Agent modal -->
+    <div id="agent-modal" class="modal hidden">
+      <div class="modal-backdrop" id="agent-modal-backdrop"></div>
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3 id="agent-modal-title">New agent</h3>
+          <button class="icon-btn" id="agent-modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-row">
+            <label>Name</label>
+            <input type="text" id="agent-name" placeholder="SEO Bot" class="settings-input" />
+          </div>
+          <div class="form-row">
+            <label>Description</label>
+            <input type="text" id="agent-desc" placeholder="What does this agent do?" class="settings-input" />
+          </div>
+          <div class="form-row">
+            <label>Avatar</label>
+            <div id="avatar-picker" class="avatar-picker"></div>
+          </div>
+          <div class="form-row">
+            <label>Model</label>
+            <select id="agent-model" class="settings-input">
+              <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
+              <option value="claude-opus-4-6">claude-opus-4-6</option>
+              <option value="claude-haiku-4-5-20251001">claude-haiku-4-5</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>System prompt</label>
+            <textarea id="agent-system-prompt" class="context-textarea" rows="5" placeholder="You are an expert in…"></textarea>
+          </div>
+          <div class="form-row">
+            <label>Triggers <span class="hint">(comma-separated keywords)</span></label>
+            <input type="text" id="agent-triggers" placeholder="SEO, référencement, meta" class="settings-input" />
+          </div>
+          <div class="form-row">
+            <label class="toggle-label">
+              <span>Enabled</span>
+              <input type="checkbox" id="agent-enabled" checked />
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="agent-delete-btn" class="btn-danger hidden">Delete</button>
+          <div style="flex:1"></div>
+          <button id="agent-cancel-btn" class="btn-secondary">Cancel</button>
+          <button id="agent-save-btn" class="btn-primary">Save</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="/static/app.js?v=12"></script>
+</body>
+</html>

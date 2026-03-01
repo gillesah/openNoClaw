@@ -1,0 +1,35 @@
+services:
+  opennoclaw:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: opennoclaw:latest
+    container_name: opennoclaw
+    environment:
+      - TZ=Europe/Paris
+      # Uncomment to use Anthropic API backend instead of Claude CLI:
+      # - ANTHROPIC_API_KEY=sk-ant-...
+    volumes:
+      # Config (required) — copy config.yml.example to config.yml first
+      - ./config.yml:/app/config.yml:ro
+      # Persistent data (memory, usage stats)
+      - ./data:/data
+      # Skills directory
+      - ./skills:/skills
+      # Claude Code CLI auth — mounts host credentials into container
+      - ${CLAUDE_CONFIG_DIR:-/home/gillesah/.claude}:/home/node/.claude
+      # Dev: mount source code for hot-reload without rebuild (comment out in prod)
+      - ./core:/app/core
+      - ./interfaces:/app/interfaces
+      - ./main.py:/app/main.py
+    ports:
+      - "${PORT:-8080}:8080"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN         # needed to fix perms on startup if required
+      - SETUID
+      - SETGID

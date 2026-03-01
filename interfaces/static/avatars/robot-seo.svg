@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <!-- Antenna with search -->
+  <line x1="24" y1="9" x2="24" y2="5" stroke="#4cba7d" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="24" cy="4" r="2" fill="#4cba7d"/>
+  <!-- Head -->
+  <rect x="14" y="9" width="20" height="15" rx="4" fill="#2d6e4a"/>
+  <!-- Eyes — magnifying glass style -->
+  <circle cx="20" cy="15" r="3" fill="#fff" opacity="0.9"/>
+  <circle cx="28" cy="15" r="3" fill="#fff" opacity="0.9"/>
+  <circle cx="20" cy="15" r="1.5" fill="#1a1630"/>
+  <circle cx="28" cy="15" r="1.5" fill="#1a1630"/>
+  <!-- Search line on one eye -->
+  <line x1="22" y1="17" x2="24" y2="19" stroke="#4cba7d" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Mouth -->
+  <path d="M19 21 Q24 23 29 21" stroke="#4cba7d" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+  <!-- Neck -->
+  <rect x="21" y="24" width="6" height="3" rx="1" fill="#1a5c3a"/>
+  <!-- Body -->
+  <rect x="12" y="27" width="24" height="16" rx="4" fill="#1a5c3a"/>
+  <!-- Chart bars on body -->
+  <rect x="16" y="37" width="3" height="5" rx="1" fill="#4cba7d" opacity="0.8"/>
+  <rect x="21" y="33" width="3" height="9" rx="1" fill="#4cba7d"/>
+  <rect x="26" y="35" width="3" height="7" rx="1" fill="#4cba7d" opacity="0.8"/>
+  <rect x="31" y="31" width="3" height="11" rx="1" fill="#4cba7d" opacity="0.6"/>
+  <!-- Arms -->
+  <rect x="5" y="27" width="7" height="4" rx="2" fill="#1a5c3a"/>
+  <rect x="36" y="27" width="7" height="4" rx="2" fill="#1a5c3a"/>
+  <circle cx="5" cy="31" r="2.5" fill="#2d6e4a"/>
+  <circle cx="43" cy="31" r="2.5" fill="#2d6e4a"/>
+  <!-- Legs -->
+  <rect x="16" y="43" width="7" height="4" rx="2" fill="#1a5c3a"/>
+  <rect x="25" y="43" width="7" height="4" rx="2" fill="#1a5c3a"/>
+</svg>

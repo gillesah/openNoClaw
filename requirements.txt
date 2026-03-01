@@ -1,0 +1,14 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+websockets>=13.0
+python-telegram-bot>=21.0
+anthropic>=0.40.0
+apscheduler>=3.10.0
+pyyaml>=6.0
+aiofiles>=24.1.0
+httpx>=0.27.0
+playwright>=1.48.0
+gkeepapi>=0.17.0
+gpsoauth>=2.0.0
+google-api-python-client>=2.0.0
+google-auth>=2.0.0

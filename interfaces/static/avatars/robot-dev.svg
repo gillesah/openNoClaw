@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <!-- Antenna -->
+  <line x1="24" y1="9" x2="24" y2="5" stroke="#7b6ef6" stroke-width="2" stroke-linecap="round"/>
+  <rect x="21.5" y="2.5" width="5" height="4" rx="1" fill="#7b6ef6"/>
+  <!-- Head -->
+  <rect x="14" y="9" width="20" height="15" rx="4" fill="#2a2050"/>
+  <!-- Terminal eyes -->
+  <rect x="16" y="12" width="7" height="5" rx="1" fill="#0e1016"/>
+  <rect x="25" y="12" width="7" height="5" rx="1" fill="#0e1016"/>
+  <text x="17" y="16.5" font-family="monospace" font-size="4" fill="#7b6ef6">&gt;_</text>
+  <text x="26" y="16.5" font-family="monospace" font-size="4" fill="#7b6ef6">01</text>
+  <!-- Flat mouth -->
+  <rect x="20" y="20" width="8" height="2" rx="1" fill="#7b6ef6" opacity="0.6"/>
+  <!-- Neck -->
+  <rect x="21" y="24" width="6" height="3" rx="1" fill="#1a1640"/>
+  <!-- Body -->
+  <rect x="12" y="27" width="24" height="16" rx="4" fill="#1a1640"/>
+  <!-- Code lines on chest -->
+  <rect x="16" y="30" width="12" height="1.5" rx="0.75" fill="#7b6ef6" opacity="0.8"/>
+  <rect x="16" y="33" width="8" height="1.5" rx="0.75" fill="#a78bfa" opacity="0.6"/>
+  <rect x="16" y="36" width="14" height="1.5" rx="0.75" fill="#7b6ef6" opacity="0.8"/>
+  <rect x="16" y="39" width="6" height="1.5" rx="0.75" fill="#a78bfa" opacity="0.5"/>
+  <!-- Arms -->
+  <rect x="5" y="27" width="7" height="4" rx="2" fill="#1a1640"/>
+  <rect x="36" y="27" width="7" height="4" rx="2" fill="#1a1640"/>
+  <circle cx="5" cy="31" r="2.5" fill="#2a2050"/>
+  <circle cx="43" cy="31" r="2.5" fill="#2a2050"/>
+  <!-- Legs -->
+  <rect x="16" y="43" width="7" height="4" rx="2" fill="#1a1640"/>
+  <rect x="25" y="43" width="7" height="4" rx="2" fill="#1a1640"/>
+</svg>

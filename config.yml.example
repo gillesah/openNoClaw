@@ -1,0 +1,29 @@
+backend:
+  type: claude-cli        # claude-cli | anthropic-api
+  api_key: ""             # only for anthropic-api
+  model: claude-sonnet-4-6
+
+web:
+  host: 0.0.0.0
+  port: 8080
+  auth:
+    enabled: true
+    password: changeme
+
+telegram:
+  enabled: false
+  token: ""
+  allowed_chat_ids: []
+
+memory:
+  max_messages: 50
+  path: ./data/memory.json
+
+crons: []
+  # - id: example-cron
+  #   name: "Example cron"
+  #   schedule: "*/10 * * * *"
+  #   command: "echo hello"
+  #   enabled: true
+
+skills_dir: ./skills
