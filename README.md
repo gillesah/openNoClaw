@@ -25,6 +25,7 @@ If you loved OpenClaw but felt uneasy about the grey-area API usage — or if yo
 - **Custom agents** — create specialized agents with their own system prompts and triggers
 - **Telegram bot** — chat with your assistant directly from Telegram
 - **Zero frontend dependencies** — vanilla HTML/CSS/JS, nothing to build
+<img width="1126" height="625" alt="image" src="https://github.com/user-attachments/assets/18da6b57-1c3d-4e9c-8fd1-a0d7424d31e6" />
 
 ---
 
