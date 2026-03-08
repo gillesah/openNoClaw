@@ -1,10 +1,16 @@
 # openNoClaw
 
-A self-hosted AI home agent for non-developers — web interface, skills, crons, and multi-user support.
+**OpenClaw, but done right.**
 
-Built around [Claude Code CLI](https://github.com/anthropics/claude-code) and the Anthropic API, openNoClaw lets you run a personal AI assistant on your own server, fully compliant with Anthropic's usage policies.
+[OpenClaw](https://github.com/openClaw) popularised the idea of running Claude as a self-hosted home agent. openNoClaw takes that same idea and rebuilds it properly:
 
-> Inspired by the spirit of [OpenClaw](https://github.com/openClaw) but rebuilt from scratch: no API workarounds, no unofficial hacks — just the official Claude Code CLI and Anthropic API, wrapped in a friendly web UI anyone in your household can use.
+- Uses the **official Claude Code CLI** (`claude -p`) and the **official Anthropic API** — no reverse-engineered endpoints, no unofficial hacks
+- Fully compliant with Anthropic's usage policies
+- Adds a **web interface** so non-developers in your household can use it too
+
+If you loved OpenClaw but felt uneasy about the grey-area API usage — or if you got burned when Anthropic changed something — this is the drop-in replacement you were waiting for.
+
+> Self-hosted AI assistant. Web UI, skills, crons, multi-user, Telegram bot. Your keys, your server, your data.
 
 ---
 
