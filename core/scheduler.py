@@ -131,7 +131,7 @@ class Scheduler:
 
                 # Inject SKILL.md matching this cron's id, if it exists
                 system_prompt = agent["system_prompt"]
-                for _base in [Path("/skills"), Path("skills"), Path("/home/gillesah/openNoClaw/skills")]:
+                for _base in [Path("/skills"), Path("skills")]:
                     skill_path = _base / job_id / "SKILL.md"
                     if skill_path.exists():
                         break
@@ -174,7 +174,7 @@ class Scheduler:
             logger.error(f"Job '{status.name}' timed out")
         except Exception as e:
             import traceback
-            status.last_status = f"error"
+            status.last_status = "error"
             status.last_error = traceback.format_exc()
             logger.error(f"Job '{status.name}' exception: {e}")
 
@@ -183,27 +183,44 @@ class Scheduler:
         if job and job.next_run_time:
             status.next_run = job.next_run_time
 
-        # Send notifications if configured
-        if status.notify_channels and status.notify_users and self._connexion_manager:
+        # Send notifications
+        has_error = status.last_status in ("error", "timeout") or status.last_status.startswith("error:")
+        if self._connexion_manager:
             try:
                 from core import notifications
                 import re as _re
-                body = (status.last_output[:100000] or "No output.").strip()
-                # If output contains HTML (e.g. morning-brief), extract just the HTML part
-                _html_match = _re.search(r'(<!DOCTYPE html>.*?</html>)', body, _re.DOTALL | _re.IGNORECASE)
-                if _html_match:
-                    body = _html_match.group(1)
-                # Extract <title> for better email subject
-                _title_match = _re.search(r'<title>(.*?)</title>', body, _re.IGNORECASE)
-                if _title_match:
-                    subject = _title_match.group(1).strip()
-                else:
-                    subject = f"[Cron] {status.name} — {status.last_status}"
-                for uid in status.notify_users:
-                    await notifications.notify(
-                        self._connexion_manager, uid,
-                        status.notify_channels, subject, body,
-                    )
+
+                if has_error:
+                    # Always notify on error — use the job's configured channels/users, or fall back to default
+                    notify_channels = status.notify_channels or ["telegram"]
+                    notify_users = status.notify_users or []
+                    err_msg = status.last_error or status.last_status
+                    subject = f"⚠️ Erreur cron : {status.name}"
+                    body = f"Statut : {status.last_status}\n\nErreur :\n{err_msg[:2000]}"
+                    if status.last_output:
+                        body += f"\n\nDernier output :\n{status.last_output[:1000]}"
+                    for uid in notify_users:
+                        await notifications.notify(
+                            self._connexion_manager, uid,
+                            notify_channels, subject, body,
+                        )
+                elif status.notify_channels and status.notify_users:
+                    body = (status.last_output[:100000] or "No output.").strip()
+                    # If output contains HTML (e.g. morning-brief), extract just the HTML part
+                    _html_match = _re.search(r'(<!DOCTYPE html>.*?</html>)', body, _re.DOTALL | _re.IGNORECASE)
+                    if _html_match:
+                        body = _html_match.group(1)
+                    # Extract <title> for better email subject
+                    _title_match = _re.search(r'<title>(.*?)</title>', body, _re.IGNORECASE)
+                    if _title_match:
+                        subject = _title_match.group(1).strip()
+                    else:
+                        subject = f"[Cron] {status.name} — {status.last_status}"
+                    for uid in status.notify_users:
+                        await notifications.notify(
+                            self._connexion_manager, uid,
+                            status.notify_channels, subject, body,
+                        )
             except Exception as e:
                 logger.error(f"Notification error for job '{status.name}': {e}")
 

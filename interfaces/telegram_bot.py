@@ -30,6 +30,7 @@ class TelegramBot:
         memory,
         skills_manager,
         allowed_chat_ids: list[int] = None,
+        **kwargs,
     ):
         self.backend = backend
         self.memory = memory
@@ -95,7 +96,7 @@ class TelegramBot:
         await context.bot.send_chat_action(chat_id=chat_id, action="typing")
 
         try:
-            response = await self.backend.chat(messages, system_prompt)
+            response, _usage = await self.backend.chat(messages, system_prompt)
             await self.memory.add_message(user_id, "assistant", response)
 
             # Telegram max message length is 4096 chars

@@ -3,7 +3,7 @@ FROM node:22-slim
 
 # Install Python 3 + pip + Xvfb (for non-headless Playwright)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip python3-venv curl xvfb docker.io \
+    python3 python3-pip python3-venv curl xvfb docker.io ffmpeg \
   && rm -rf /var/lib/apt/lists/*
 
 # Install Claude Code CLI globally

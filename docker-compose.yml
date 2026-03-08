@@ -17,7 +17,7 @@ services:
       # Skills directory
       - ./skills:/skills
       # Claude Code CLI auth — mounts host credentials into container
-      - ${CLAUDE_CONFIG_DIR:-/home/gillesah/.claude}:/home/node/.claude
+      - ${CLAUDE_CONFIG_DIR:-~/.claude}:/home/node/.claude
       # Dev: mount source code for hot-reload without rebuild (comment out in prod)
       - ./core:/app/core
       - ./interfaces:/app/interfaces

@@ -73,7 +73,7 @@ def create_app(
         p = parse_token(token)
         if not p:
             raise HTTPException(status_code=401)
-        return {"id": p["id"], "name": p.get("name", p["id"]), "admin": p.get("admin", False)}
+        return {"id": p["id"], "name": p.get("name", p["id"]), "admin": p.get("admin", False), "can_manage": p.get("can_manage", False)}
 
     @app.get("/api/history/{user_id}")
     async def get_history(user_id: str, token: str = ""):
@@ -378,7 +378,7 @@ def create_app(
     async def create_skill(body: dict, token: str = ""):
         """Create a new skill directory with SKILL.md (and optionally skill.py)."""
         p = parse_token(token)
-        if not p or not p.get("admin"):
+        if not p or not (p.get("admin") or p.get("can_manage")):
             raise HTTPException(status_code=403)
         name = body.get("name", "").strip().lower().replace(" ", "-")
         if not name:
@@ -404,7 +404,7 @@ def create_app(
     @app.post("/api/agents")
     async def create_agent(body: dict, token: str = ""):
         p = parse_token(token)
-        if not p or not p.get("admin"):
+        if not p or not (p.get("admin") or p.get("can_manage")):
             raise HTTPException(status_code=403)
         if agents_manager is None:
             raise HTTPException(status_code=503)
@@ -619,28 +619,30 @@ def create_app(
         return CM.get_catalog()
 
     @app.post("/api/connexions/test/telegram")
-    async def test_telegram(token: str = ""):
+    async def test_telegram(token: str = "", for_user: str = ""):
         p = parse_token(token)
         if not p:
             raise HTTPException(status_code=401)
         if connexion_manager is None:
             raise HTTPException(status_code=503)
+        target = for_user if for_user and p.get("admin") else p["id"]
         from core.notifications import send_telegram
-        tg = connexion_manager.get_telegram(p["id"])
+        tg = connexion_manager.get_telegram(target)
         if not tg.get("bot_token") or not tg.get("chat_id"):
             raise HTTPException(status_code=400, detail="Telegram not configured")
         ok = await send_telegram(tg["bot_token"], tg["chat_id"], "✅ openNoClaw — Test message OK!")
         return {"ok": ok}
 
     @app.post("/api/connexions/test/email")
-    async def test_email(body: dict, token: str = ""):
+    async def test_email(body: dict, token: str = "", for_user: str = ""):
         p = parse_token(token)
         if not p:
             raise HTTPException(status_code=401)
         if connexion_manager is None:
             raise HTTPException(status_code=503)
+        target = for_user if for_user and p.get("admin") else p["id"]
         from core.notifications import send_email
-        email_cfg = connexion_manager.get_email(p["id"])
+        email_cfg = connexion_manager.get_email(target)
         if not email_cfg.get("smtp_host") or not email_cfg.get("smtp_user"):
             raise HTTPException(status_code=400, detail="Email SMTP not configured")
         to = body.get("to") or email_cfg.get("from_email") or email_cfg.get("smtp_user")
@@ -1386,6 +1388,137 @@ def create_app(
         url = await session.current_url()
         return {"ok": True, "text": text, "url": url, "message": f"{len(text)} chars extracted from {url}"}
 
+    @app.post("/api/actions/gmail-list")
+    async def action_gmail_list(body: dict, token: str = ""):
+        """List Gmail messages."""
+        p = parse_token(token)
+        if not p:
+            raise HTTPException(status_code=401)
+        if gmail_manager is None or not gmail_manager.is_connected(p["id"]):
+            return {"ok": False, "message": "Gmail not connected"}
+        query = body.get("query", "in:inbox is:unread")
+        max_results = int(body.get("max", 50))
+        try:
+            msg_refs = await gmail_manager.list_messages(p["id"], query, max_results)
+            messages = []
+            for ref in msg_refs:
+                try:
+                    msg = await gmail_manager.get_message_summary(p["id"], ref["id"])
+                    messages.append(msg)
+                except Exception:
+                    messages.append({"id": ref["id"], "error": "fetch failed"})
+            return {"ok": True, "count": len(messages), "messages": messages}
+        except Exception as e:
+            return {"ok": False, "message": f"Error: {e}"}
+
+    @app.post("/api/actions/gmail-get")
+    async def action_gmail_get(body: dict, token: str = ""):
+        """Get a Gmail message (headers + snippet + body)."""
+        p = parse_token(token)
+        if not p:
+            raise HTTPException(status_code=401)
+        if gmail_manager is None or not gmail_manager.is_connected(p["id"]):
+            return {"ok": False, "message": "Gmail not connected"}
+        msg_id = body.get("id", "")
+        if not msg_id:
+            return {"ok": False, "message": "id is required"}
+        try:
+            msg = await gmail_manager.get_message_summary(p["id"], msg_id)
+            return {"ok": True, **msg}
+        except Exception as e:
+            return {"ok": False, "message": f"Error: {e}"}
+
+    @app.post("/api/actions/gmail-archive")
+    async def action_gmail_archive(body: dict, token: str = ""):
+        """Archive a Gmail message."""
+        p = parse_token(token)
+        if not p:
+            raise HTTPException(status_code=401)
+        if gmail_manager is None or not gmail_manager.is_connected(p["id"]):
+            return {"ok": False, "message": "Gmail not connected"}
+        msg_id = body.get("id", "")
+        if not msg_id:
+            return {"ok": False, "message": "id is required"}
+        try:
+            await gmail_manager.archive_message(p["id"], msg_id)
+            return {"ok": True, "archived": msg_id}
+        except Exception as e:
+            return {"ok": False, "message": f"Error: {e}"}
+
+    @app.post("/api/actions/gmail-mark-read")
+    async def action_gmail_mark_read(body: dict, token: str = ""):
+        """Mark a Gmail message as read."""
+        p = parse_token(token)
+        if not p:
+            raise HTTPException(status_code=401)
+        if gmail_manager is None or not gmail_manager.is_connected(p["id"]):
+            return {"ok": False, "message": "Gmail not connected"}
+        msg_id = body.get("id", "")
+        if not msg_id:
+            return {"ok": False, "message": "id is required"}
+        try:
+            import httpx as _httpx
+            token_val = await gmail_manager._get_access_token(p["id"])
+            async with _httpx.AsyncClient(timeout=10) as _c:
+                r = await _c.post(
+                    f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{msg_id}/modify",
+                    headers={"Authorization": f"Bearer {token_val}"},
+                    json={"removeLabelIds": ["UNREAD"]},
+                )
+            r.raise_for_status()
+            return {"ok": True, "marked_read": msg_id}
+        except Exception as e:
+            return {"ok": False, "message": f"Error: {e}"}
+
+    @app.post("/api/actions/gmail-reply")
+    async def action_gmail_reply(body: dict, token: str = ""):
+        """Reply to a Gmail thread."""
+        p = parse_token(token)
+        if not p:
+            raise HTTPException(status_code=401)
+        if gmail_manager is None or not gmail_manager.is_connected(p["id"]):
+            return {"ok": False, "message": "Gmail not connected"}
+        msg_id = body.get("id", "")
+        to = body.get("to", "")
+        subject = body.get("subject", "")
+        content = body.get("body", "")
+        if not msg_id or not to or not subject or not content:
+            return {"ok": False, "message": "id, to, subject and body are required"}
+        try:
+            import httpx as _httpx
+            import base64 as _b64
+            from email.mime.text import MIMEText as _MIMEText
+            # Get original for threading headers
+            orig = await gmail_manager.get_message(p["id"], msg_id)
+            orig_headers = {h["name"].lower(): h["value"] for h in orig.get("payload", {}).get("headers", [])}
+            thread_id = orig.get("threadId", "")
+            orig_msg_id = orig_headers.get("message-id", "")
+            orig_refs = orig_headers.get("references", "")
+            if not subject.startswith("Re:"):
+                subject = f"Re: {subject}"
+            msg = _MIMEText(content, "plain", "utf-8")
+            msg["To"] = to
+            msg["Subject"] = subject
+            if orig_msg_id:
+                msg["In-Reply-To"] = orig_msg_id
+                msg["References"] = f"{orig_refs} {orig_msg_id}".strip() if orig_refs else orig_msg_id
+            raw = _b64.urlsafe_b64encode(msg.as_bytes()).decode()
+            payload = {"raw": raw}
+            if thread_id:
+                payload["threadId"] = thread_id
+            token_val = await gmail_manager._get_access_token(p["id"])
+            async with _httpx.AsyncClient(timeout=30) as _c:
+                r = await _c.post(
+                    "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+                    headers={"Authorization": f"Bearer {token_val}"},
+                    json=payload,
+                )
+            r.raise_for_status()
+            result = r.json()
+            return {"ok": True, "sent": result.get("id", ""), "thread_id": thread_id}
+        except Exception as e:
+            return {"ok": False, "message": f"Error: {e}"}
+
     @app.post("/api/actions/gmail-send")
     async def action_gmail_send(body: dict, token: str = ""):
         """Send an email via Gmail."""
@@ -1406,9 +1539,29 @@ def create_app(
         except Exception as e:
             return {"ok": False, "message": f"Error: {e}"}
 
+    @app.post("/api/actions/gmail-draft")
+    async def action_gmail_draft(body: dict, token: str = ""):
+        """Create a Gmail draft (not sent)."""
+        p = parse_token(token)
+        if not p:
+            raise HTTPException(status_code=401)
+        if gmail_manager is None or not gmail_manager.is_connected(p["id"]):
+            return {"ok": False, "message": "Gmail not connected"}
+        to = body.get("to", "")
+        subject = body.get("subject", "")
+        content = body.get("body", "")
+        html = body.get("html", False)
+        if not to or not subject or not content:
+            return {"ok": False, "message": "to, subject and body are required"}
+        try:
+            result = await gmail_manager.create_draft(p["id"], to, subject, content, html=html)
+            return {"ok": True, "message": f"Draft created for {to}", "id": result.get("id", "")}
+        except Exception as e:
+            return {"ok": False, "message": f"Error: {e}"}
+
     @app.post("/api/actions/send-email")
     async def action_send_email(body: dict, token: str = ""):
-        """Send an email via Gmail (if connected) or SMTP fallback. Usable from chat, crons, skills."""
+        """Send an email via Gmail (if connected) or SMTP fallback. Supports attachments."""
         p = parse_token(token)
         if not p:
             raise HTTPException(status_code=401)
@@ -1416,12 +1569,70 @@ def create_app(
         subject = body.get("subject", "")
         content = body.get("body", "")
         html = body.get("html", False)
+        attachments = body.get("attachments")  # list of {filename, path} or {filename, content, mime_type}
         if not to or not subject or not content:
             return {"ok": False, "message": "to, subject and body are required"}
+        if attachments and gmail_manager and gmail_manager.is_connected(p["id"]):
+            try:
+                result = await gmail_manager.send_message(p["id"], to, subject, content,
+                                                          html=html, attachments=attachments)
+                return {"ok": True, "method": "gmail", "message": f"Sent via Gmail to {to}", "id": result.get("id", "")}
+            except Exception as e:
+                return {"ok": False, "message": f"Gmail error: {e}"}
         from core.notifications import send_email_smart
         result = await send_email_smart(gmail_manager, connexion_manager, p["id"],
                                         to, subject, content, html=html)
         return result
+
+    # ── Bash action (run-action blocks from chat) ─────────────
+
+    @app.post("/api/actions/bash")
+    async def action_bash(body: dict, token: str = ""):
+        """Execute a shell command. Long commands (>5s) auto-run in background."""
+        p = parse_token(token)
+        if not p or (not p.get("admin") and not p.get("can_manage")):
+            raise HTTPException(status_code=403)
+        cmd = body.get("command", "").strip()
+        if not cmd:
+            return {"ok": False, "message": "command required"}
+        background = body.get("background", False)
+        timeout = int(body.get("timeout", 90))
+
+        if background:
+            # Run detached — return immediately
+            log_path = f"/data/bash_bg_{abs(hash(cmd)) % 100000}.log"
+            full_cmd = f"nohup sh -c {__import__('shlex').quote(cmd)} > {log_path} 2>&1 &"
+            proc = await asyncio.create_subprocess_shell(
+                full_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            )
+            await proc.communicate()
+            return {"ok": True, "message": f"Running in background. Log: {log_path}", "log": log_path}
+
+        try:
+            proc = await asyncio.create_subprocess_shell(
+                cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            try:
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+            except asyncio.TimeoutError:
+                try:
+                    proc.kill()
+                    await proc.wait()
+                except Exception:
+                    pass
+                return {"ok": False, "message": f"Timeout after {timeout}s. Use background:true for long commands."}
+
+            out = stdout.decode(errors="replace").strip()
+            err = stderr.decode(errors="replace").strip()
+            ok = proc.returncode == 0
+            result = out or err or "(no output)"
+            if not ok:
+                result = f"Exit {proc.returncode}\n{result}"
+            return {"ok": ok, "message": result[:3000], "returncode": proc.returncode}
+        except Exception as e:
+            return {"ok": False, "message": str(e)}
 
     # ── Management actions (run-action blocks from chat) ───────
 
@@ -1485,7 +1696,7 @@ def create_app(
     @app.post("/api/actions/create-cron")
     async def action_create_cron(body: dict, token: str = ""):
         p = parse_token(token)
-        if not p or not p.get("admin"):
+        if not p or not (p.get("admin") or p.get("can_manage")):
             raise HTTPException(status_code=403)
         cron_id = body.get("id")
         if not cron_id:
@@ -1499,7 +1710,7 @@ def create_app(
     @app.post("/api/actions/update-cron")
     async def action_update_cron(body: dict, token: str = ""):
         p = parse_token(token)
-        if not p or not p.get("admin"):
+        if not p or not (p.get("admin") or p.get("can_manage")):
             raise HTTPException(status_code=403)
         data = dict(body)
         cron_id = data.pop("id", None)
@@ -1649,7 +1860,9 @@ def create_app(
                         notion_cap = "Notion (connecté — utilise l'API REST Notion directement."
                         notion_cap += f" Token: {notion['api_key']}."
                         if notion.get("database_id"):
-                            notion_cap += f" Database ID du tableau influenceurs: {notion['database_id']}."
+                            notion_cap += f" Database ID tableau influenceurs: {notion['database_id']}."
+                        if notion.get("linkedin_db_id"):
+                            notion_cap += f" Database ID posts LinkedIn: {notion['linkedin_db_id']}."
                         notion_cap += " Endpoint: https://api.notion.com/v1/ — header requis: 'Notion-Version: 2022-06-28'.)"
                         caps.append(notion_cap)
                     if caps:
@@ -1752,7 +1965,8 @@ def create_app(
                                 "Always use the user's language in the fact. Be concise and factual (e.g. \"Youri Michel est le beau-frère de Gilles\")."
                             )
 
-                        if profile.get("admin") and agents_manager is not None:
+                        _can_manage = profile.get("admin") or profile.get("can_manage")
+                        if _can_manage and agents_manager is not None:
                             _agents = agents_manager.list_agents()
                             _skills = skills_manager.list_skills()
                             _crons = scheduler.get_status()
@@ -1760,18 +1974,24 @@ def create_app(
                             _skill_list = ", ".join(_skills) or "none"
                             _cron_list = ", ".join(f"{c['name']} (id:{c['id']})" for c in _crons) or "none"
                             chat_extra += (
-                                f"\n\n[Management] You can manage this openNoClaw instance via run-action blocks."
+                                f"\n\n[Management] You can create automations via run-action blocks."
                                 f"\nAgents ({len(_agents)}): {_agent_list}"
-                                "\n  update-agent: {\"action\":\"update-agent\",\"id\":\"...\",\"name\":\"...\",\"system_prompt\":\"...\"}"
-                                "\n  delete-agent: {\"action\":\"delete-agent\",\"id\":\"...\"}"
                                 f"\nSkills ({len(_skills)}): {_skill_list}"
-                                "\n  update-skill: {\"action\":\"update-skill\",\"name\":\"...\",\"content\":\"...full SKILL.md...\"}"
-                                "\n  reload-skills: {\"action\":\"reload-skills\"}"
                                 f"\nCrons ({len(_crons)}): {_cron_list}"
                                 "\n  create-cron: {\"action\":\"create-cron\",\"id\":\"...\",\"name\":\"...\",\"schedule\":\"0 9 * * *\",\"command\":\"...\"}"
-                                "\n  update-cron: {\"action\":\"update-cron\",\"id\":\"...\",...fields}"
-                                "\n  delete-cron: {\"action\":\"delete-cron\",\"id\":\"...\"}"
+                                "\n  update-cron: {\"action\":\"update-cron\",\"id\":\"...\",\"schedule\":\"...\",\"command\":\"...\"}"
+                                "\n  create-agent: {\"action\":\"create-agent\",\"name\":\"...\",\"system_prompt\":\"...\",\"triggers\":[...]}"
+                                "\n  create-skill: {\"action\":\"create-skill\",\"name\":\"...\",\"skill_md\":\"...\"}"
                             )
+                            if profile.get("admin"):
+                                chat_extra += (
+                                    "\n  update-agent: {\"action\":\"update-agent\",\"id\":\"...\",\"name\":\"...\",\"system_prompt\":\"...\"}"
+                                    "\n  delete-agent: {\"action\":\"delete-agent\",\"id\":\"...\"}"
+                                    "\n  update-skill: {\"action\":\"update-skill\",\"name\":\"...\",\"content\":\"...full SKILL.md...\"}"
+                                    "\n  reload-skills: {\"action\":\"reload-skills\"}"
+                                    "\n  update-cron: {\"action\":\"update-cron\",\"id\":\"...\",...fields}"
+                                    "\n  delete-cron: {\"action\":\"delete-cron\",\"id\":\"...\"}"
+                                )
 
                         skills_prompt = skills_manager.build_system_prompt()
                         base = (context_addition + chat_extra) if (context_addition or chat_extra) else ""

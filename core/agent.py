@@ -24,21 +24,26 @@ class ClaudeCliBackend:
     def __init__(self, model: str = "claude-sonnet-4-6"):
         self.model = model
 
-    def _base_cmd(self, prompt: str, model: str) -> list[str]:
+    def _base_cmd(self, model: str) -> list[str]:
+        # Prompt is passed via stdin to avoid ARG_MAX (E2BIG) on long prompts
         return [
-            "claude", "-p", prompt,
+            "claude", "-p",
             "--model", model,
             "--dangerously-skip-permissions",
         ]
 
-    async def _run_cmd(self, cmd: list[str]) -> str:
+    async def _run_cmd(self, cmd: list[str], prompt: str) -> str:
+        import os, signal
+        proc = None
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
+                stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                start_new_session=True,  # new process group → allows killing the whole tree
             )
-            stdout, stderr = await proc.communicate()
+            stdout, stderr = await proc.communicate(input=prompt.encode())
             if proc.returncode != 0:
                 err = stderr.decode().strip()
                 raise RuntimeError(f"claude CLI error (code {proc.returncode}): {err}")
@@ -47,6 +52,20 @@ class ClaudeCliBackend:
             raise RuntimeError(
                 "claude CLI not found. Install: npm install -g @anthropic-ai/claude-code"
             )
+        except (asyncio.CancelledError, Exception):
+            if proc and proc.returncode is None:
+                try:
+                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                except Exception:
+                    try:
+                        proc.kill()
+                    except Exception:
+                        pass
+                try:
+                    await asyncio.wait_for(proc.wait(), timeout=5)
+                except Exception:
+                    pass
+            raise
 
     async def chat(self, messages: list[dict], system: str = "") -> tuple[str, dict]:
         """Returns (response_text, usage_dict). Usage is empty for CLI."""
@@ -61,7 +80,7 @@ class ClaudeCliBackend:
             elif role == "assistant":
                 prompt_parts.append(f"Assistant: {content}")
         prompt = "\n\n".join(prompt_parts)
-        response = await self._run_cmd(self._base_cmd(prompt, self.model))
+        response = await self._run_cmd(self._base_cmd(self.model), prompt)
         return response, {}
 
     async def stream(self, messages: list[dict], system: str = "") -> AsyncIterator[dict]:
@@ -71,13 +90,13 @@ class ClaudeCliBackend:
         yield {"type": "usage", "input_tokens": 0, "output_tokens": 0}
 
     async def run_agent(self, system_prompt: str, task: str, model: str | None = None) -> str:
-        """Execute a one-shot agent task via claude -p. Used by cron jobs."""
+        """Execute a one-shot agent task via claude -p (stdin). Used by cron jobs."""
         prompt_parts = []
         if system_prompt:
             prompt_parts.append(f"<system>\n{system_prompt}\n</system>")
         prompt_parts.append(f"Human: {task}")
         prompt = "\n\n".join(prompt_parts)
-        return await self._run_cmd(self._base_cmd(prompt, model or self.model))
+        return await self._run_cmd(self._base_cmd(model or self.model), prompt)
 
 
 class AnthropicSDKBackend:

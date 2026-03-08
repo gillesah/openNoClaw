@@ -5,6 +5,8 @@ let token = "";
 let currentProfile = null;
 let ws = null;
 let isStreaming = false;
+let pendingActions = 0;
+let actionResults = [];  // collect run-action results to feed back to Claude
 let currentBubble = null;
 let currentBubbleAgent = null;
 let sessionCostUsd = 0;
@@ -29,6 +31,7 @@ const EUR_RATE = 0.92;
 const AVATARS = ["robot-default", "robot-seo", "robot-cm", "robot-dev", "robot-analyst", "robot-writer"];
 
 // ── DOM ───────────────────────────────────────────────────────
+const activityBar       = document.getElementById("activity-bar");
 const loginScreen       = document.getElementById("login-screen");
 const profilePicker     = document.getElementById("profile-picker");
 const loginPwArea       = document.getElementById("login-password-area");
@@ -328,13 +331,48 @@ function handleWS(msg) {
 
 // ── Meta-create blocks ─────────────────────────────────────────
 function renderMetaActions(bubble, content) {
-  if (!currentProfile?.admin) return;
-  const blockRe = /```(create-agent|create-skill|send-notification|run-action)\s*\n([\s\S]*?)```/g;
+  if (!currentProfile?.admin && !currentProfile?.can_manage) return;
+  const blockRe = /```(create-agent|create-skill|create-cron|update-cron|send-notification|run-action)\s*\n([\s\S]*?)```/g;
   let match;
   while ((match = blockRe.exec(content)) !== null) {
     const type = match[1];
     let data;
     try { data = JSON.parse(match[2]); } catch { continue; }
+
+    // Auto-execute create/update blocks (no confirmation button needed)
+    if (type === "create-cron" || type === "update-cron" || type === "create-agent" || type === "create-skill") {
+      const bodyEl3 = bubble.querySelector(".body") || bubble;
+      const status3 = document.createElement("div");
+      status3.className = "browser-action-status";
+      status3.textContent = `${type === "update-cron" ? "Updating" : "Creating"} ${type.replace("create-","").replace("update-","")} "${data.name || data.id}"…`;
+      bodyEl3.appendChild(status3);
+
+      let endpoint;
+      let fetchOpts = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) };
+      if (type === "create-cron") endpoint = `/api/actions/create-cron?token=${enc(token)}`;
+      else if (type === "update-cron") endpoint = `/api/actions/update-cron?token=${enc(token)}`;
+      else if (type === "create-agent") endpoint = `/api/agents?token=${enc(token)}`;
+      else if (type === "create-skill") endpoint = `/api/admin/skills?token=${enc(token)}`;
+
+      safeFetch(endpoint, fetchOpts).then(res => {
+        const ok = res?.ok === true || res?.status === "ok" || res?.id || (res && !("ok" in res) && !("status" in res) && !("detail" in res));
+        const label = data.name || data.id || type;
+        status3.style.color = ok ? "var(--ok)" : "var(--err)";
+        if (ok) {
+          status3.textContent = `✓ ${label} créé`;
+          addSysMsg(`✓ Action réussie : ${type} "${label}"`);
+        } else {
+          const errMsg = res?.message || res?.detail || "Échec";
+          status3.textContent = `✗ ${errMsg}`;
+          addSysMsg(`✗ Échec ${type} "${label}" : ${errMsg}`);
+        }
+      }).catch(err => {
+        status3.style.color = "var(--err)";
+        status3.textContent = `✗ Erreur: ${err.message}`;
+        addSysMsg(`✗ Erreur ${type} "${data.name || data.id || ""}" : ${err.message}`);
+      });
+      continue;
+    }
 
     if (type === "run-action") {
       const action = data.action || "";
@@ -346,9 +384,34 @@ function renderMetaActions(bubble, content) {
       bodyEl2.appendChild(status2);
       // Map action name to endpoint
       const endpoint = `/api/actions/${action}`;
+      const isBackground = data.background === true;
+
+      // Show activity bar
+      pendingActions++;
+      if (activityBar) activityBar.style.display = "block";
+
+      const doneAction = (ok, message, feedBack = true) => {
+        // Feed result back to Claude (unless background or browser screenshot)
+        if (feedBack && !isBackground) {
+          actionResults.push({ action, ok, message: String(message || "").slice(0, 2000) });
+        }
+        if (--pendingActions <= 0) {
+          pendingActions = 0;
+          if (activityBar) activityBar.style.display = "none";
+          // Send all collected results back to Claude as a single message
+          if (actionResults.length > 0) {
+            const batch = actionResults.splice(0);
+            const content = "[Action results — do not repeat, just continue]\n" +
+              batch.map(r => `${r.ok ? "✅" : "❌"} ${r.action}: ${r.message}`).join("\n");
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: "message", content }));
+            }
+          }
+        }
+      };
 
       if (action.startsWith("browser-")) {
-        // Browser actions: show screenshot result
+        // Browser actions: show screenshot result (no feedback loop, Claude can't see images via text)
         safeFetch(`${endpoint}?token=${enc(token)}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -368,13 +431,16 @@ function renderMetaActions(bubble, content) {
               });
               bodyEl2.appendChild(img);
             }
+            doneAction(true, `${action} ok`, false);
           } else {
             status2.style.color = "var(--err)";
             status2.textContent = `✗ ${action}: ${res?.message || "failed"}`;
+            doneAction(false, res?.message || "failed", false);
           }
         }).catch(err => {
           status2.style.color = "var(--err)";
           status2.textContent = `✗ ${action} error: ${err.message}`;
+          doneAction(false, err.message, false);
         });
         continue;
       }
@@ -384,16 +450,20 @@ function renderMetaActions(bubble, content) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       }).then(res => {
-        if (res?.ok === true || (res && !("ok" in res))) {
+        const ok = res?.ok === true || (res && !("ok" in res));
+        const msg = res?.message || res?.detail || (ok ? `${action} done` : `${action} failed`);
+        if (ok) {
           status2.style.color = "var(--ok)";
-          status2.textContent = res?.message || `✓ ${action} done`;
+          status2.textContent = `✓ ${msg}`;
         } else {
           status2.style.color = "var(--err)";
-          status2.textContent = res?.message || res?.detail || `✗ ${action} failed`;
+          status2.textContent = `✗ ${msg}`;
         }
+        doneAction(ok, msg);
       }).catch(err => {
         status2.style.color = "var(--err)";
         status2.textContent = `✗ ${action} error: ${err.message}`;
+        doneAction(false, err.message);
       });
       continue;
     }
@@ -427,30 +497,40 @@ function renderMetaActions(bubble, content) {
     btn.className = "meta-create-btn";
     btn.textContent = type === "create-agent"
       ? `✦ Create agent "${data.name}"`
-      : `✦ Create skill "${data.name}"`;
+      : type === "create-cron" || type === "update-cron"
+        ? `✦ ${type === "update-cron" ? "Update" : "Create"} automation "${data.name || data.id}"`
+        : `✦ Create skill "${data.name}"`;
 
     btn.addEventListener("click", async () => {
       btn.disabled = true;
-      btn.textContent = "Creating…";
+      btn.textContent = "Saving…";
       let res;
       if (type === "create-agent") {
         res = await safeFetch(`/api/agents?token=${enc(token)}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+      } else if (type === "create-cron") {
+        res = await safeFetch(`/api/actions/create-cron?token=${enc(token)}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+      } else if (type === "update-cron") {
+        res = await safeFetch(`/api/actions/update-cron?token=${enc(token)}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
         });
       } else {
         res = await safeFetch(`/api/admin/skills?token=${enc(token)}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+          method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
         });
       }
-      if (res) {
-        btn.textContent = "✓ Created!";
+      if (res?.ok === true || res?.status === "ok" || (res && !("ok" in res) && !("status" in res))) {
+        btn.textContent = "✓ Done!";
         btn.style.background = "var(--ok)";
       } else {
-        btn.textContent = "✗ Failed";
+        btn.textContent = `✗ ${res?.message || res?.detail || "Failed"}`;
         btn.style.background = "var(--err)";
         btn.disabled = false;
       }
@@ -1881,7 +1961,8 @@ async function loadConnexions() {
   const notion = data.notion || {};
   if (f("notion-enabled"))      f("notion-enabled").checked    = notion.enabled || false;
   if (f("notion-api-key"))      f("notion-api-key").value      = notion.api_key || "";
-  if (f("notion-database-id"))  f("notion-database-id").value  = notion.database_id || "";
+  if (f("notion-database-id"))    f("notion-database-id").value    = notion.database_id || "";
+  if (f("notion-linkedin-db-id")) f("notion-linkedin-db-id").value = notion.linkedin_db_id || "";
 
 }
 
@@ -1895,10 +1976,10 @@ function _getForUser() {
 
 function _setConnUser(userId) {
   _connActiveUser = userId || currentProfile?.id || "";
-  // Show/hide gilles-only cards
-  const gillesOnly = document.querySelectorAll(".conn-gilles-only");
-  const isGilles = _connActiveUser !== "pam";
-  gillesOnly.forEach(el => el.style.display = isGilles ? "" : "none");
+  // Show admin-only cards only when managing the admin's own connexions
+  const adminOnly = document.querySelectorAll(".conn-admin-only");
+  const isOwnAdmin = _connActiveUser === currentProfile?.id && currentProfile?.admin;
+  adminOnly.forEach(el => el.style.display = isOwnAdmin ? "" : "none");
   loadConnexions();
 }
 
@@ -1910,7 +1991,7 @@ function _switchStab(tabName) {
     loadSettings();
   } else {
     document.getElementById("stab-connexions")?.classList.add("active");
-    _setConnUser(tabName === "pam" ? "pam" : "gilles");
+    _setConnUser(tabName);
   }
 }
 
@@ -1918,9 +1999,22 @@ async function initSettingsTabs() {
   const tabsEl = document.getElementById("settings-tabs");
   if (currentProfile?.admin) {
     tabsEl?.classList.remove("hidden");
-    // Wire tab buttons
-    document.querySelectorAll(".stab-btn").forEach(btn => {
-      btn.onclick = () => _switchStab(btn.dataset.stab);
+    // Generate user tabs dynamically from profiles
+    const res = await safeFetch(`/api/profiles?token=${enc(token)}`);
+    const profiles = Array.isArray(res) ? res : [];
+    profiles.forEach(p => {
+      if (!tabsEl.querySelector(`[data-stab="${p.id}"]`)) {
+        const btn = document.createElement("button");
+        btn.className = "stab-btn";
+        btn.dataset.stab = p.id;
+        btn.textContent = p.name || p.id;
+        btn.onclick = () => _switchStab(p.id);
+        tabsEl.appendChild(btn);
+      }
+    });
+    // Wire static tab buttons (Général)
+    tabsEl.querySelectorAll(".stab-btn").forEach(btn => {
+      if (!btn.onclick) btn.onclick = () => _switchStab(btn.dataset.stab);
     });
     // Default: Général tab
     _switchStab("general");
@@ -2222,7 +2316,8 @@ const tgMsg = document.getElementById("tg-msg");
 if (tgSaveBtn) {
   tgSaveBtn.addEventListener("click", async () => {
     tgSaveBtn.disabled = true;
-    const res = await safeFetch(`/api/connexions/telegram?token=${enc(token)}`, {
+    const forUser = _getForUser();
+    const res = await safeFetch(`/api/connexions/telegram?token=${enc(token)}&for_user=${forUser}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         enabled: document.getElementById("tg-enabled").checked,
@@ -2238,7 +2333,8 @@ if (tgSaveBtn) {
 if (tgTestBtn) {
   tgTestBtn.addEventListener("click", async () => {
     tgTestBtn.disabled = true;
-    const res = await safeFetch(`/api/connexions/test/telegram?token=${enc(token)}`, { method: "POST" });
+    const forUser = _getForUser();
+    const res = await safeFetch(`/api/connexions/test/telegram?token=${enc(token)}&for_user=${forUser}`, { method: "POST" });
     tgTestBtn.disabled = false;
     showConnMsg(tgMsg, res?.ok === true, "✓ Message sent!", "✗ Failed — check token and chat ID");
   });
@@ -2252,7 +2348,8 @@ const emailMsg = document.getElementById("email-msg");
 if (emailSaveBtn) {
   emailSaveBtn.addEventListener("click", async () => {
     emailSaveBtn.disabled = true;
-    const res = await safeFetch(`/api/connexions/email?token=${enc(token)}`, {
+    const forUser = _getForUser();
+    const res = await safeFetch(`/api/connexions/email?token=${enc(token)}&for_user=${forUser}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         enabled: document.getElementById("email-enabled").checked,
@@ -2273,7 +2370,8 @@ if (emailSaveBtn) {
 if (emailTestBtn) {
   emailTestBtn.addEventListener("click", async () => {
     emailTestBtn.disabled = true;
-    const res = await safeFetch(`/api/connexions/test/email?token=${enc(token)}`, {
+    const forUser = _getForUser();
+    const res = await safeFetch(`/api/connexions/test/email?token=${enc(token)}&for_user=${forUser}`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     });
@@ -2355,6 +2453,7 @@ if (notionSaveBtn) {
         enabled: document.getElementById("notion-enabled")?.checked || false,
         api_key: document.getElementById("notion-api-key")?.value || "",
         database_id: document.getElementById("notion-database-id")?.value.trim() || "",
+        linkedin_db_id: document.getElementById("notion-linkedin-db-id")?.value.trim() || "",
       }),
     });
     notionSaveBtn.disabled = false;

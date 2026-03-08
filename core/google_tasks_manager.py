@@ -32,6 +32,7 @@ GOOGLE_SCOPES = " ".join([
     "https://www.googleapis.com/auth/tasks",
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/webmasters.readonly",
 ])
 # Keep alias for backward compat
 TASKS_SCOPE = GOOGLE_SCOPES

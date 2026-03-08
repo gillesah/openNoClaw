@@ -59,7 +59,7 @@
         </button>
         <button class="nav-item" data-section="automation" title="Automation">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M8.46 8.46a5 5 0 0 0 0 7.07"/></svg>
-          <span>Auto</span>
+          <span>Actions</span>
         </button>
         <button class="nav-item" data-section="browser" title="Browser">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M2 7h20"/><circle cx="5" cy="5" r=".5" fill="currentColor"/><circle cx="8" cy="5" r=".5" fill="currentColor"/><path d="M8 21l4-4 4 4"/></svg>
@@ -99,6 +99,7 @@
             <div id="sessions-list" class="sessions-list"></div>
           </div>
           <div id="messages" class="messages"></div>
+          <div id="activity-bar" class="activity-bar" style="display:none"></div>
           <div class="input-area">
             <div id="attach-preview" class="attach-preview"></div>
             <div class="input-row">
@@ -153,8 +154,7 @@
         <!-- Tab bar -->
         <div id="settings-tabs" class="settings-tabs hidden">
           <button class="stab-btn active" data-stab="general">Général</button>
-          <button class="stab-btn" data-stab="gilles">Gilles</button>
-          <button class="stab-btn" data-stab="pam">Pam</button>
+          <!-- User connexion tabs are injected dynamically by initSettingsTabs() -->
         </div>
 
         <!-- ─── Tab: Général (admin) ─────────────────────────────── -->
@@ -356,7 +356,7 @@
           </div>
 
           <!-- GitHub -->
-          <div class="settings-card conn-gilles-only">
+          <div class="settings-card conn-admin-only">
             <div class="settings-card-title">GitHub</div>
             <div class="settings-card-sub">Personal Access Token (PAT) pour merger des branches et déclencher des déploiements via GitHub Actions.</div>
             <div class="conn-field-group">
@@ -371,11 +371,11 @@
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
                 <div class="form-row">
                   <label>Repo owner</label>
-                  <input type="text" id="gh-repo-owner" class="settings-input" placeholder="gillesah" />
+                  <input type="text" id="gh-repo-owner" class="settings-input" placeholder="yourusername" />
                 </div>
                 <div class="form-row">
                   <label>Default repo</label>
-                  <input type="text" id="gh-repo-name" class="settings-input" placeholder="fluenzr" />
+                  <input type="text" id="gh-repo-name" class="settings-input" placeholder="your-repo" />
                 </div>
               </div>
             </div>
@@ -386,7 +386,7 @@
           </div>
 
           <!-- Linear -->
-          <div class="settings-card conn-gilles-only">
+          <div class="settings-card conn-admin-only">
             <div class="settings-card-title">Linear</div>
             <div class="settings-card-sub">Clé API Linear pour lire le board et déplacer les tickets automatiquement.</div>
             <div class="conn-field-group">
@@ -500,7 +500,7 @@
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
                 <div class="form-row">
                   <label>Email du compte</label>
-                  <input type="email" id="leclerc-email" class="settings-input" placeholder="pam@example.com" autocomplete="off" />
+                  <input type="email" id="leclerc-email" class="settings-input" placeholder="user@example.com" autocomplete="off" />
                 </div>
                 <div class="form-row">
                   <label>Mot de passe</label>
@@ -528,8 +528,12 @@
                 <input type="password" id="notion-api-key" class="settings-input" placeholder="ntn_..." autocomplete="off" />
               </div>
               <div class="form-row">
-                <label>Database ID <span class="hint">— ID du tableau influenceurs (URL Notion → 32 caractères)</span></label>
+                <label>Database ID influenceurs <span class="hint">— tableau FABA (URL Notion → 32 caractères)</span></label>
                 <input type="text" id="notion-database-id" class="settings-input" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autocomplete="off" />
+              </div>
+              <div class="form-row">
+                <label>Database ID LinkedIn <span class="hint">— tableau posts LinkedIn dans ta page SOCIAL-MEDIA</span></label>
+                <input type="text" id="notion-linkedin-db-id" class="settings-input" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autocomplete="off" />
               </div>
             </div>
             <div style="display:flex;gap:.6rem;margin-top:.9rem;align-items:center">
@@ -539,7 +543,7 @@
           </div>
 
           <!-- MCPs -->
-          <div class="settings-card conn-gilles-only" style="max-width:none">
+          <div class="settings-card conn-admin-only" style="max-width:none">
             <div class="settings-card-title">MCP Connections</div>
             <div class="settings-card-sub">Model Context Protocol servers — extend Claude's capabilities with external tools.</div>
             <div id="mcps-list" style="margin:.8rem 0"></div>

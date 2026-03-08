@@ -1,34 +1,64 @@
 # openNoClaw
 
-A lightweight, self-hosted AI home agent built around the Anthropic Claude API or Claude Code CLI.
+A self-hosted AI home agent for non-developers — web interface, skills, crons, and multi-user support.
 
-**Features:**
-- Web chat UI with real-time streaming (WebSocket)
-- Telegram bot integration
-- Cron job scheduler with live dashboard
-- Skill system — drop in `SKILL.md` files, Claude reads them automatically
-- Two AI backends: Claude CLI (free with Claude.ai subscription) or Anthropic API (direct)
-- Zero frontend dependencies — vanilla HTML/CSS/JS
+Built around [Claude Code CLI](https://github.com/anthropics/claude-code) and the Anthropic API, openNoClaw lets you run a personal AI assistant on your own server, fully compliant with Anthropic's usage policies.
+
+> Inspired by the spirit of [OpenClaw](https://github.com/openClaw) but rebuilt from scratch: no API workarounds, no unofficial hacks — just the official Claude Code CLI and Anthropic API, wrapped in a friendly web UI anyone in your household can use.
+
+---
+
+## What it does
+
+- **Chat UI** — web interface with real-time streaming, conversation history, multi-session support
+- **Skill system** — drop a `SKILL.md` file in `skills/my-skill/` and Claude reads it automatically
+- **Cron scheduler** — automate tasks on a schedule, with Telegram/email notifications
+- **Multi-user** — one server, multiple users, each with their own connexions and history
+- **Connexions** — configure Telegram, Gmail, GitHub, Linear, Notion, social networks from the Settings UI
+- **Browser** — embedded Playwright browser, controllable from the chat
+- **Custom agents** — create specialized agents with their own system prompts and triggers
+- **Telegram bot** — chat with your assistant directly from Telegram
+- **Zero frontend dependencies** — vanilla HTML/CSS/JS, nothing to build
+
+---
 
 ## Quick start
 
+**Requirements:** Python 3.11+, Docker (recommended)
+
 ```bash
-git clone https://github.com/yourusername/openNoClaw
+git clone https://github.com/gillesah/openNoClaw
 cd openNoClaw
 
+cp config.yml.example config.yml
+# Edit config.yml — set your users, API key or CLI backend, etc.
+```
+
+### Option A — Docker (recommended)
+
+```bash
+# Set your Claude config dir (where Claude Code stores its auth)
+export CLAUDE_CONFIG_DIR=~/.claude
+
+docker compose up -d
+# → Open http://localhost:8080
+```
+
+### Option B — Local Python
+
+```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-
-cp config.yml.example config.yml
-# Edit config.yml — set your backend, password, Telegram token, etc.
-
 python main.py
 # → Open http://localhost:8080
 ```
 
+---
+
 ## Configuration
 
 ```yaml
+# config.yml
 backend:
   type: claude-cli        # claude-cli | anthropic-api
   api_key: ""             # only for anthropic-api
@@ -39,89 +69,156 @@ web:
   port: 8080
   auth:
     enabled: true
-    password: yourpassword
+
+users:
+  - id: alice
+    name: Alice
+    password: changeme
+    admin: true
+  - id: bob
+    name: Bob
+    password: changeme2
+    admin: false
 
 telegram:
   enabled: false
-  token: "your-bot-token"
-  allowed_chat_ids: [123456789]
-
-memory:
-  max_messages: 50
-  path: ./data/memory.json
-
-crons:
-  - id: my-daily-task
-    name: "Daily task"
-    schedule: "0 9 * * *"
-    command: "python skills/my-skill/run.py"
-    enabled: true
+  token: ""
+  allowed_chat_ids: []
 
 skills_dir: ./skills
 ```
 
-## Backends
+---
+
+## Two AI backends
 
 ### `claude-cli` (default)
-Uses the [Claude Code CLI](https://github.com/anthropics/claude-code) (`claude -p`).
-- Requires `npm install -g @anthropic-ai/claude-code` and login
-- Free if you have a Claude.ai subscription
-- No streaming (full response at once)
+
+Uses the official [Claude Code CLI](https://github.com/anthropics/claude-code) (`claude -p`).
+
+- Install: `npm install -g @anthropic-ai/claude-code`
+- Login: `claude` → follow the OAuth flow (Claude.ai subscription required)
+- Free to use with an existing Claude.ai subscription
+- **Anthropic-compliant**: uses the official CLI with your own account
 
 ### `anthropic-api`
-Direct Anthropic API calls.
-- Requires an API key from [console.anthropic.com](https://console.anthropic.com)
+
+Direct Anthropic API — requires an API key from [console.anthropic.com](https://console.anthropic.com).
+
 - Supports native streaming
-- ~$2–5/month for personal use
+- ~$2–10/month for personal use depending on usage
+
+---
 
 ## Skills
 
-Create a directory under `skills/` with a `SKILL.md` file:
+Create a folder under `skills/` with a `SKILL.md` file:
 
 ```
 skills/
   my-skill/
-    SKILL.md      ← describes capabilities to Claude
-    my_script.py  ← optional Python script
+    SKILL.md          ← describes what Claude can do with this skill
+    my_script.py      ← optional helper script
 ```
 
-Claude reads all `SKILL.md` files as part of its system prompt and decides which skill to use based on the user's message.
+Claude reads all `SKILL.md` files as part of its system prompt and picks the right skill based on what you ask. Two example skills are included:
+
+- `skills/example/` — minimal starter template
+- `skills/email-assistant/` — triage and reply to emails
+- `skills/meta/` — manage your openNoClaw platform from the chat (create agents, skills, crons)
+
+---
 
 ## Crons
 
-Define cron jobs in `config.yml`. The dashboard shows last run status and next scheduled time.
+Define automated tasks in `config.yml`:
 
 ```yaml
 crons:
-  - id: sync-job
-    name: "Data sync"
-    schedule: "*/10 * * * *"   # every 10 minutes
-    command: "python skills/my-skill/sync.py"
+  - id: morning-brief
+    name: "Morning brief"
+    schedule: "0 7 * * 1-5"    # weekdays at 7am
+    command: "claude -p 'Write a brief summary of today: weather, tasks, news' --allowedTools Bash"
     enabled: true
+    notify:
+      channels: [telegram]
+      user: alice
 ```
 
-## Telegram
+The Automation panel shows last run status, next scheduled time, and lets you trigger runs manually.
 
-1. Create a bot via [@BotFather](https://t.me/BotFather)
-2. Set `telegram.token` in config
-3. Add your chat ID to `allowed_chat_ids` (get it from [@userinfobot](https://t.me/userinfobot))
+---
 
-**Bot commands:**
-- `/start` — say hello
-- `/clear` — clear conversation history
-- `/skills` — list loaded skills
+## Connexions
+
+Each user can configure their own integrations from Settings → Connexions:
+
+| Integration | What it enables |
+|-------------|-----------------|
+| **Telegram** | Send/receive messages, run crons via Telegram |
+| **Email (SMTP)** | Send emails, cron notifications |
+| **Gmail** | Read and manage Gmail (OAuth) |
+| **GitHub** | Create issues, merge PRs |
+| **Linear** | Check boards, move tickets |
+| **Notion** | Read/write databases |
+| **Social** | Bluesky, Twitter/X, Reddit |
+
+---
 
 ## Your keys, your instance
 
-openNoClaw never includes any API keys or credentials. Each person who deploys it provides their own:
+openNoClaw never ships with API keys or credentials. Each deployment uses its own:
 
-- **Anthropic API backend** → your own API key from [console.anthropic.com](https://console.anthropic.com), entered in the Settings UI
-- **Claude Code CLI backend** → your own Claude.ai subscription, authenticated via the Settings UI (one-click OAuth flow)
+- **Claude Code CLI backend** → your own Claude.ai subscription, authenticated via `claude` login
+- **Anthropic API backend** → your own API key from [console.anthropic.com](https://console.anthropic.com)
 
-This follows the same model as self-hosted tools like Nextcloud or Gitea: the code is shared, the credentials are yours alone.
+This follows the same model as Nextcloud or Gitea: the code is shared, the data and credentials are yours.
 
-**Household use** (e.g. two people on the same home server) is fine with a single subscription. Each person who runs their own separate instance should use their own subscription/API key.
+**Fair use note:** Each person running their own separate instance should use their own subscription or API key. Sharing a single account across multiple households is against Anthropic's terms of service.
+
+---
+
+## Deploy on a VPS
+
+```bash
+# On your server
+git clone https://github.com/gillesah/openNoClaw
+cd openNoClaw
+
+# Authenticate Claude Code CLI on the server
+claude   # follow the login flow once
+
+# Run
+docker compose up -d
+```
+
+To expose it publicly, pair with [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) (no open ports needed):
+
+```yaml
+# /etc/cloudflared/config.yml
+tunnel: your-tunnel-id
+ingress:
+  - hostname: myagent.example.com
+    service: http://localhost:8080
+  - service: http_status:404
+```
+
+---
+
+## vs OpenClaw
+
+| | OpenClaw | openNoClaw |
+|-|----------|------------|
+| AI backend | Unofficial Claude API | Official Claude Code CLI + Anthropic API |
+| Web UI | No | Yes — for non-developers |
+| Anthropic compliant | ⚠️ Unclear | ✅ Yes |
+| Multi-user | No | Yes |
+| Skills | Scripts | SKILL.md (natural language) |
+| Crons | Yes | Yes + UI dashboard |
+| Self-hosted | Yes | Yes |
+
+---
 
 ## License
 
-MIT
+[MIT + Commons Clause](LICENSE) — free for personal and non-commercial use.

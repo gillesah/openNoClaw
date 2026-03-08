@@ -34,7 +34,7 @@ EMPTY = {"telegram": {"enabled": False, "bot_token": "", "chat_id": ""},
                          "access_token": "", "access_token_secret": ""},
          },
          "leclerc": {"enabled": False, "email": "", "password": ""},
-         "notion": {"enabled": False, "api_key": "", "database_id": ""},
+         "notion": {"enabled": False, "api_key": "", "database_id": "", "linkedin_ideas_id": "", "linkedin_posts_id": ""},
          "mcps": []}
 
 MCP_CATALOG = [

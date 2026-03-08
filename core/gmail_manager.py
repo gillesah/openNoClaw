@@ -187,7 +187,62 @@ class GmailManager:
                                      json={"removeLabelIds": ["INBOX"]})
         resp.raise_for_status()
 
-    async def send_message(self, user_id: str, to: str, subject: str, body: str, html: bool = False) -> dict:
+    async def send_message(self, user_id: str, to: str, subject: str, body: str,
+                           html: bool = False, attachments: list[dict] | None = None) -> dict:
+        """
+        Send an email, optionally with attachments.
+        attachments: list of {"filename": "report.pdf", "path": "/data/report.pdf"}
+                     or {"filename": "data.csv", "content": "<base64>", "mime_type": "text/csv"}
+        """
+        import mimetypes
+        from email.mime.base import MIMEBase
+        from email import encoders
+
+        token = await self._get_access_token(user_id)
+
+        if attachments:
+            msg = MIMEMultipart("mixed")
+            alt = MIMEMultipart("alternative")
+            alt.attach(MIMEText(body, "html" if html else "plain"))
+            msg.attach(alt)
+            for att in attachments:
+                filename = att.get("filename", "attachment")
+                if "path" in att:
+                    path = att["path"]
+                    mime_type, _ = mimetypes.guess_type(path)
+                    main_type, sub_type = (mime_type or "application/octet-stream").split("/", 1)
+                    with open(path, "rb") as f:
+                        data = f.read()
+                elif "content" in att:
+                    data = base64.b64decode(att["content"])
+                    mime_type = att.get("mime_type", "application/octet-stream")
+                    main_type, sub_type = mime_type.split("/", 1)
+                else:
+                    continue
+                part = MIMEBase(main_type, sub_type)
+                part.set_payload(data)
+                encoders.encode_base64(part)
+                part.add_header("Content-Disposition", "attachment", filename=filename)
+                msg.attach(part)
+        elif html:
+            msg = MIMEMultipart("alternative")
+            msg.attach(MIMEText(body, "html"))
+        else:
+            msg = MIMEText(body, "plain")
+
+        msg["to"] = to
+        msg["subject"] = subject
+        raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(f"{GMAIL_API}/messages/send",
+                                     headers={"Authorization": f"Bearer {token}"},
+                                     json={"raw": raw})
+        resp.raise_for_status()
+        return resp.json()
+
+    async def create_draft(self, user_id: str, to: str, subject: str, body: str,
+                           html: bool = False) -> dict:
+        """Create a Gmail draft (not sent)."""
         token = await self._get_access_token(user_id)
         if html:
             msg = MIMEMultipart("alternative")
@@ -197,10 +252,10 @@ class GmailManager:
         msg["to"] = to
         msg["subject"] = subject
         raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.post(f"{GMAIL_API}/messages/send",
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(f"{GMAIL_API}/drafts",
                                      headers={"Authorization": f"Bearer {token}"},
-                                     json={"raw": raw})
+                                     json={"message": {"raw": raw}})
         resp.raise_for_status()
         return resp.json()
 
